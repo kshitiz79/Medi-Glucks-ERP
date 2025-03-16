@@ -14,24 +14,39 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(helmet());
-app.use(cors({
-  origin: 'http://localhost:5173' // or an array of allowed origins
-}));
+const allowedOrigins = [
+  'http://localhost:5173',  
+  'https://gluckscare.com'  
+];
 
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);  // Allow request
+    } else {
+      callback(new Error('Not allowed by CORS'));  // Block request
+    }
+  },
+  credentials: true,  
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+
+
+
 const authRoutes = require('./src/auth/auth');
 const userRoutes = require('./src/user/userRoutes');
 const pdfRoutes = require('./src/pdf/Route');
 const headOfficeRouter = require('./src/headoffice/Route');
 const doctorRouter = require('./src/doctor/DoctorRoute');
-
 const salesActivityRoutes = require('./src/sales/SalesRoute');
-
+const doctorsVisitRoutes = require('./src/DoctorVisite/Route');
 
 
 
@@ -44,6 +59,11 @@ app.use('/api/pdfs', pdfRoutes);
 app.use('/api/headoffices', headOfficeRouter);
 app.use('/api/doctors', doctorRouter);
 app.use('/api/sales', salesActivityRoutes);
+app.use('/api/doctor-visits', doctorsVisitRoutes);
+
+
+
+
 app.get('/', (req, res) => {
   res.send('Sales Management API is running');
 });

@@ -1,4 +1,3 @@
-// backend/models/Doctor.js
 const mongoose = require('mongoose');
 
 const doctorSchema = new mongoose.Schema({
@@ -20,7 +19,11 @@ const doctorSchema = new mongoose.Schema({
   visit_history: [{
     date: { type: Date, required: true },
     notes: { type: String },
+    confirmed: { type: Boolean, default: false },
+    // The user (sales rep) who scheduled the visit
     salesRep: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // New field to store the user’s name who scheduled the visit
+    userName: { type: String }
   }],
 }, { timestamps: true });
 

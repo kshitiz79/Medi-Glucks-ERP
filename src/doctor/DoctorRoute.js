@@ -100,4 +100,62 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+
+
+router.post('/:id/visit', async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.params.id);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    doctor.visit_history.push(req.body);
+    await doctor.save();
+    res.status(201).json({ message: 'Visit added', doctor });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Confirm (or unconfirm) a specific visit
+router.put('/:id/visit/:visitId/confirm', async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.params.id);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    const visit = doctor.visit_history.id(req.params.visitId);
+    if (!visit) {
+      return res.status(404).json({ message: 'Visit not found' });
+    }
+
+    visit.confirmed = true;
+    await doctor.save();
+
+    res.json({ message: 'Visit confirmed', doctor });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+router.post('/:id/visit', async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.params.id);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+  
+    const { date, notes, userName, salesRep } = req.body;
+
+    doctor.visit_history.push({ date, notes, userName, salesRep });
+    await doctor.save();
+    res.status(201).json({ message: 'Visit added', doctor });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+
+
 module.exports = router;

@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
     await user.save();
 
     // Create JWT
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '60h' });
 
     res.json({
       token,
@@ -59,13 +59,13 @@ router.post('/login', async (req, res) => {
     }
 
     // Create JWT
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // Return user info
+    // Return token and user data
     res.json({
       token,
       user: {
-        id: user._id.toString(), // Ensure we return a string version of ObjectId
+        id: user._id.toString(), 
         name: user.name,
         email: user.email,
         role: user.role
