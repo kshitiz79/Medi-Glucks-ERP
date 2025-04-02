@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../user/User');
 const router = express.Router();
 
+const HeadOffice = require('./../headoffice/Model')
 // REGISTER
 router.post('/register', async (req, res) => {
   try {
@@ -36,6 +37,7 @@ router.post('/register', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role
+
       }
     });
   } catch (err) {
@@ -45,6 +47,7 @@ router.post('/register', async (req, res) => {
 });
 
 // LOGIN
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -59,17 +62,25 @@ router.post('/login', async (req, res) => {
     }
 
     // Create JWT
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
-    // Return token and user data
+    // Query HeadOffice information. Adjust this query if you need a specific record.
+    const headOffice = await HeadOffice.findOne({});
+
+    // Return token, user data, and head office info
     res.json({
       token,
       user: {
-        id: user._id.toString(), 
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role
-      }
+      },
+      headOffice: headOffice ? { id: headOffice._id, name: headOffice.name } : null
     });
   } catch (err) {
     console.error('Login error:', err);

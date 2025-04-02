@@ -157,5 +157,16 @@ router.post('/:id/visit', async (req, res) => {
 });
 
 
+// GET doctors by HeadOffice ID
+router.get('/by-head-office/:headOfficeId', async (req, res) => {
+  try {
+    const doctors = await Doctor.find({ headOffice: req.params.headOfficeId }).populate('headOffice');
+    res.json(doctors);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
 
 module.exports = router;

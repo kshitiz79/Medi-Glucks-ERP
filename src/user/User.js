@@ -5,16 +5,26 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  expenses: { type: String },
+  expenses: { type: String }, // Consider changing to Number or Array if appropriate
   role: { 
     type: String, 
-    enum: ['Admin', 'User'], // Only Admin and User roles
+    enum: [
+      'Admin', 
+      'User', 
+      'Super Admin', 
+      'Opps Team', 
+      'National Head', 
+      'State Head', 
+      'Zonal Manager', 
+      'Area Manager', 
+      'Manager'
+    ],
     required: true 
   },
   phone: { type: String },
   headOffice: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'HeadOffice' // assuming your head office model is named 'HeadOffice'
+    ref: 'HeadOffice' 
   },
 }, { timestamps: true });
 

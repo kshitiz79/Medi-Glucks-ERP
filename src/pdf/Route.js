@@ -13,21 +13,14 @@ const upload = multer({ storage });
 // POST /api/pdfs - Upload a PDF
 router.post('/', upload.single('pdf'), async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, type } = req.body;
+    if (!req.file) return res.status(400).json({ msg: 'No PDF file uploaded' });
+    if (!title) return res.status(400).json({ msg: 'Title is required' });
+    if (!type) return res.status(400).json({ msg: 'Type is required' });
 
-    if (!req.file) {
-      return res.status(400).json({ msg: 'No PDF file uploaded' });
-    }
-    if (!title) {
-      return res.status(400).json({ msg: 'Title is required' });
-    }
-
-    // Unique key for S3 (can also keep the original filename)
-    const fileKey = Date.now() + '-' + req.file.originalname;
-
-    // Upload to Backblaze (S3-compatible)
+    const fileKey = `${Date.now()}-${req.file.originalname}`;
     const params = {
-      Bucket: process.env.B2_S3_BUCKET_NAME, // "kshitizbucket"
+      Bucket: process.env.B2_S3_BUCKET_NAME,
       Key: fileKey,
       Body: req.file.buffer,
       ContentType: 'application/pdf',
@@ -35,36 +28,22 @@ router.post('/', upload.single('pdf'), async (req, res) => {
 
     await s3.upload(params).promise();
 
-    // If your bucket is private, the direct URL won't work without a signed URL. For now, store the Key.
-    // We'll generate a signed URL (fileUrl) for demonstration, valid for e.g. 1 hour:
-    const signedUrl = s3.getSignedUrl('getObject', {
-      Bucket: process.env.B2_S3_BUCKET_NAME,
-      Key: fileKey,
-      Expires: 604800, // Maximum allowed: 1 week
-      RequestPayer: 'requester', // if using Requester Pays
-    });
-    
-    
-    // Save metadata in MongoDB
-    const newPdf = new PdfFile({
-      title,
-      description,
-      fileKey,      // "Key" in the S3 bucket
-      fileUrl: signedUrl, // Store a short-lived signed URL or just store the key
-    });
+    const publicUrl = `${process.env.B2_S3_ENDPOINT}/${process.env.B2_S3_BUCKET_NAME}/${fileKey}`;
 
-    await newPdf.save();
-    res.json({ msg: 'PDF uploaded successfully', pdf: newPdf });
+    const newPdf = await PdfFile.create({ title, description, type, fileKey, fileUrl: publicUrl });
+    return res.status(201).json({ msg: 'PDF uploaded successfully', pdf: newPdf });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ msg: 'Server error during upload' });
+    return res.status(error.name === 'ValidationError' ? 400 : 500).json({ msg: error.message });
   }
 });
+
 
 // GET /api/pdfs - Fetch all PDFs
 router.get('/', async (req, res) => {
   try {
     const pdfs = await PdfFile.find().sort({ createdAt: -1 });
+    const pdfsWithoutUrl = pdfs.map(pdf => ({ ...pdf._doc, fileUrl: undefined }));
     res.json(pdfs);
   } catch (err) {
     console.error(err);
