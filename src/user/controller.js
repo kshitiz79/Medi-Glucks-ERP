@@ -36,11 +36,10 @@ exports.getUserById = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   try {
-    // In a real app, you might sanitize or validate the data in req.body
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
-      req.body,          // fields to update
-      { new: true }      // return the updated document
+      req.body, // This now includes headOffice if provided in the request body
+      { new: true }
     );
     if (!updatedUser) {
       return res.status(404).json({ msg: 'User not found' });
@@ -51,6 +50,7 @@ exports.updateUser = async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 };
+
 
 /**
  * Delete user by ID

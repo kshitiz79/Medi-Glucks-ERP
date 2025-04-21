@@ -55,8 +55,23 @@ const doctorsVisitRoutes = require('./src/DoctorVisite/Route');
 const expenseRoutes = require('./src/expencse/expensesRoute');
 
 const orderRoutes = require('./src/order/orderRoutes');
+// In your index.js or app.js
+const productRoutes = require('./src/product/productRoutes');
+
+const locationRoutes = require('./src/location/locationRoutes');
 
 
+const chemistRoutes = require('./src/chemist/Route');
+
+app.use('/api/chemists', chemistRoutes);
+
+
+const stockistRoutes = require('./src/stockist/Route');
+
+app.use('/api/locations', locationRoutes);
+
+
+app.use('/api/stockists', stockistRoutes);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); 
@@ -69,6 +84,9 @@ app.use('/api/doctor-visits', doctorsVisitRoutes);
 app.use('/api/expenses', expenseRoutes);
 
 app.use('/api/orders', orderRoutes);
+
+
+app.use('/api/products', productRoutes);
 app.get('/', (req, res) => {
   res.send('Sales Management API is running');
 });

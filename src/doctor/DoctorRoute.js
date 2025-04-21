@@ -91,10 +91,11 @@ router.put('/:id', async (req, res) => {
 // DELETE a doctor
 router.delete('/:id', async (req, res) => {
   try {
-    const doctor = await Doctor.findById(req.params.id);
-    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
-    await doctor.remove();
-    res.json({ message: 'Doctor deleted' });
+    const deletedDoctor = await Doctor.findByIdAndDelete(req.params.id);
+    if (!deletedDoctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+    res.json({ message: 'Doctor deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -117,7 +118,7 @@ router.post('/:id/visit', async (req, res) => {
   }
 });
 
-// Confirm (or unconfirm) a specific visit
+
 router.put('/:id/visit/:visitId/confirm', async (req, res) => {
   try {
     const doctor = await Doctor.findById(req.params.id);

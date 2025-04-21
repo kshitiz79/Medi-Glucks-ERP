@@ -7,9 +7,10 @@ const router = express.Router();
 
 const HeadOffice = require('./../headoffice/Model')
 // REGISTER
+// REGISTER
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, headOffice } = req.body;
 
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ msg: 'User already exists' });
@@ -24,6 +25,7 @@ router.post('/register', async (req, res) => {
       password: await bcrypt.hash(password, 10),
       role: role || 'User',
       phone,
+      headOffice, // assign headOffice from the form data
     });
     await user.save();
 
@@ -36,8 +38,8 @@ router.post('/register', async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-
+        role: user.role,
+        headOffice: user.headOffice,
       }
     });
   } catch (err) {
@@ -47,6 +49,11 @@ router.post('/register', async (req, res) => {
 });
 
 // LOGIN
+
+
+
+
+
 
 router.post('/login', async (req, res) => {
   try {

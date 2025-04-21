@@ -1,11 +1,11 @@
-// backend/models/Product.js
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  salt: { type: String, required: true },
   description: { type: String, required: true },
   dosage: { type: String, required: true },
-  brochure_url: { type: String },
+  image: { type: String, required: true }, // Store Cloudinary URL here
 }, { timestamps: true });
 
 module.exports = mongoose.model('Product', productSchema);
