@@ -1,21 +1,23 @@
 const mongoose = require('mongoose');
 
 const stockistSchema = new mongoose.Schema({
-  firmName: { type: String, required: true }, // Required for identification
+  firmName: { type: String, required: true },
   registeredBusinessName: { type: String },
   natureOfBusiness: {
     type: String,
     enum: ['Proprietorship', 'Partnership', 'Private Ltd.', 'Public Ltd.'],
-    required: true, // Required to define business type
+    required: true,
   },
-  gstNumber: { type: String },
-  drugLicenseNumber: { type: String },
-  panNumber: { type: String },
+  gstNumber: { type: String, unique: true },
+  drugLicenseNumber: { type: String, unique: true },
+  panNumber: { type: String, unique: true },
   registeredOfficeAddress: { type: String },
+  latitude: { type: Number },
+  longitude: { type: Number },
   contactPerson: { type: String },
   designation: { type: String },
-  mobileNumber: { type: String },
-  emailAddress: { type: String },
+  mobileNumber: { type: String, required: true },
+  emailAddress: { type: String, unique: true },
   website: { type: String },
   yearsInBusiness: { type: Number },
   areasOfOperation: { type: [String] },
@@ -27,7 +29,7 @@ const stockistSchema = new mongoose.Schema({
     },
   ],
   warehouseFacility: { type: Boolean, default: false },
-  storageFacilitySize: { type: Number }, // In square feet
+  storageFacilitySize: { type: Number },
   coldStorageAvailable: { type: Boolean, default: false },
   numberOfSalesRepresentatives: { type: Number },
   bankDetails: {
@@ -35,6 +37,11 @@ const stockistSchema = new mongoose.Schema({
     branch: { type: String },
     accountNumber: { type: String },
     ifscCode: { type: String },
+  },
+  headOffice: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'HeadOffice', 
+    required: true 
   },
   createdAt: { type: Date, default: Date.now },
 });

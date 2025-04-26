@@ -19,6 +19,8 @@ const doctorVisitSchema = new mongoose.Schema({
   notes: {
     type: String,
   },
+  latitude: { type: Number }, 
+  longitude: { type: Number }, 
   confirmed: {
     type: Boolean,
     default: false,

@@ -1,4 +1,3 @@
-// backend/routes/doctor.js
 const express = require('express');
 const router = express.Router();
 const Doctor = require('./Doctor');
@@ -30,6 +29,8 @@ router.post('/', async (req, res) => {
     name,
     specialization,
     location,
+    latitude, // New field
+    longitude, // New field
     email,
     phone,
     registration_number,
@@ -37,13 +38,15 @@ router.post('/', async (req, res) => {
     date_of_birth,
     gender,
     anniversary,
-    head_office, // Expect head_office to be the ObjectId of a HeadOffice
+    head_office,
   } = req.body;
 
   const doctor = new Doctor({
     name,
     specialization,
     location,
+    latitude, // Include latitude
+    longitude, // Include longitude
     email,
     phone,
     registration_number,
@@ -72,6 +75,8 @@ router.put('/:id', async (req, res) => {
     doctor.name = req.body.name || doctor.name;
     doctor.specialization = req.body.specialization || doctor.specialization;
     doctor.location = req.body.location || doctor.location;
+    doctor.latitude = req.body.latitude !== undefined ? req.body.latitude : doctor.latitude; // Handle new fields
+    doctor.longitude = req.body.longitude !== undefined ? req.body.longitude : doctor.longitude;
     doctor.email = req.body.email || doctor.email;
     doctor.phone = req.body.phone || doctor.phone;
     doctor.registration_number = req.body.registration_number || doctor.registration_number;
@@ -101,8 +106,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-
-
+// POST a new visit
 router.post('/:id/visit', async (req, res) => {
   try {
     const doctor = await Doctor.findById(req.params.id);
@@ -110,7 +114,8 @@ router.post('/:id/visit', async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    doctor.visit_history.push(req.body);
+    const { date, notes, userName, salesRep } = req.body;
+    doctor.visit_history.push({ date, notes, userName, salesRep });
     await doctor.save();
     res.status(201).json({ message: 'Visit added', doctor });
   } catch (error) {
@@ -118,7 +123,7 @@ router.post('/:id/visit', async (req, res) => {
   }
 });
 
-
+// Confirm a visit
 router.put('/:id/visit/:visitId/confirm', async (req, res) => {
   try {
     const doctor = await Doctor.findById(req.params.id);
@@ -133,30 +138,11 @@ router.put('/:id/visit/:visitId/confirm', async (req, res) => {
 
     visit.confirmed = true;
     await doctor.save();
-
     res.json({ message: 'Visit confirmed', doctor });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
-router.post('/:id/visit', async (req, res) => {
-  try {
-    const doctor = await Doctor.findById(req.params.id);
-    if (!doctor) {
-      return res.status(404).json({ message: 'Doctor not found' });
-    }
-
-  
-    const { date, notes, userName, salesRep } = req.body;
-
-    doctor.visit_history.push({ date, notes, userName, salesRep });
-    await doctor.save();
-    res.status(201).json({ message: 'Visit added', doctor });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
 
 // GET doctors by HeadOffice ID
 router.get('/by-head-office/:headOfficeId', async (req, res) => {
@@ -167,7 +153,5 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
-
 
 module.exports = router;

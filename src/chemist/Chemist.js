@@ -1,16 +1,24 @@
+// src/models/Chemist.js
 const mongoose = require('mongoose');
 
 const chemistSchema = new mongoose.Schema({
-  firmName: { type: String, required: true }, // Required for identification
+  firmName: { type: String, required: true },
   contactPersonName: { type: String },
   designation: { type: String },
-  mobileNo: { type: String },
-  emailId: { type: String },
-  drugLicenseNumber: { type: String },
+  mobileNo: { type: String, required: true },
+  emailId: { type: String, unique: true },
+  drugLicenseNumber: { type: String, unique: true },
   gstNo: { type: String },
   address: { type: String },
+  latitude: { type: Number },
+  longitude: { type: Number },
   yearsInBusiness: { type: Number },
-  annualTurnover: { type: Number }, // Single value for simplicity, can be array if needed
+  annualTurnover: { type: Number },
+  headOffice: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'HeadOffice', 
+    required: true 
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

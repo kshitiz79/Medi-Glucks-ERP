@@ -2,77 +2,128 @@
 const express = require('express');
 const router = express.Router();
 const DoctorVisit = require('./DoctorVisit');
-const Doctor = require('./../doctor/Doctor');
+const Doctor = require('../doctor/Doctor');
 const User = require('./../user/User');
+const Location = require('../location/Location');
+
+// Haversine formula for distance calculation
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in meters
+};
 
 // CREATE a new doctor visit
 router.post('/', async (req, res) => {
-    try {
-      const { doctorId, userId, date, notes } = req.body;
-  
-      // Optional: verify these exist
-      const doctor = await Doctor.findById(doctorId);
-      if (!doctor) {
-        return res.status(404).json({ message: 'Doctor not found' });
+  try {
+    const { doctorId, userId, date, notes } = req.body;
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const newVisit = new DoctorVisit({
+      doctor: doctorId,
+      user: userId,
+      date,
+      notes,
+    });
+    await newVisit.save();
+    res.status(201).json({ message: 'Visit created', visit: newVisit });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// GET all visits
+router.get('/', async (req, res) => {
+  try {
+    const visits = await DoctorVisit.find()
+      .populate('doctor', 'name specialization')
+      .populate('user', 'name email');
+    res.json(visits);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// CONFIRM a visit
+router.put('/:visitId/confirm', async (req, res) => {
+  try {
+    const visit = await DoctorVisit.findById(req.params.visitId).populate('doctor');
+    if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+    let userLatitude = req.body.userLatitude;
+    let userLongitude = req.body.userLongitude;
+
+    // If coordinates not provided, fetch the latest from Location model
+    if (!userLatitude || !userLongitude) {
+      const user = await User.findById(visit.user);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+
+      const latestLocation = await Location.findOne({ userId: user._id }).sort({ timestamp: -1 });
+      if (!latestLocation) {
+        return res.status(400).json({ message: 'No recent user location available. Please provide current location.' });
       }
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-  
-      const newVisit = new DoctorVisit({
-        doctor: doctorId,
-        user: userId,
-        date,
-        notes,
+
+      userLatitude = latestLocation.latitude;
+      userLongitude = latestLocation.longitude;
+    }
+
+    const doctor = visit.doctor;
+    if (!doctor.latitude || !doctor.longitude) {
+      return res.status(400).json({ message: 'Doctor location not available' });
+    }
+
+    // Calculate distance
+    const distance = getDistance(
+      userLatitude,
+      userLongitude,
+      doctor.latitude,
+      doctor.longitude
+    );
+
+    // Check if distance is within 200 meters
+    if (distance > 200) {
+      return res.status(403).json({
+        message: `You are ${Math.round(distance)} meters away from the doctor's location. Please be within 200 meters to confirm the visit.`,
       });
-      await newVisit.save();
-      res.status(201).json({ message: 'Visit created', visit: newVisit });
-    } catch (error) {
-      res.status(400).json({ message: error.message });
     }
-  });
-  
-  // GET all visits
-  router.get('/', async (req, res) => {
-    try {
-      const visits = await DoctorVisit.find()
-        .populate('doctor', 'name specialization') // get doc details
-        .populate('user', 'name email');           // get user details
-      res.json(visits);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-  
-  // CONFIRM a visit
-  router.put('/:visitId/confirm', async (req, res) => {
-    try {
-      const visit = await DoctorVisit.findById(req.params.visitId);
-      if (!visit) return res.status(404).json({ message: 'Visit not found' });
-  
-      visit.confirmed = true;
-      await visit.save();
-      res.json({ message: 'Visit confirmed', visit });
-    } catch (error) {
-      res.status(400).json({ message: error.message });
-    }
-  });
-  
 
+    visit.confirmed = true;
+    visit.latitude = userLatitude;
+    visit.longitude = userLongitude;
+    await visit.save();
 
-  // GET /api/doctor-visits/user/:userId
+    res.json({ message: 'Visit confirmed', visit });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// GET visits by user ID
 router.get('/user/:userId', async (req, res) => {
   try {
     const visits = await DoctorVisit.find({ user: req.params.userId })
       .populate('doctor', 'name specialization')
       .populate('user', 'name');
     res.json(visits);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
-  // Optional: routes for GET one, DELETE, etc.
-  
-  module.exports = router;
+module.exports = router;
