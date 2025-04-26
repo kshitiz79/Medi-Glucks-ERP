@@ -61,12 +61,26 @@ const productRoutes = require('./src/product/productRoutes');
 const locationRoutes = require('./src/location/locationRoutes');
 
 
+const stockistRoutes = require('./src/stockist/Route');
+
 const chemistRoutes = require('./src/chemist/Route');
+
+const ticketRoutes = require('./src/raseticket/Route');
+
+
+
+
+
+
+
+
+
+
 
 app.use('/api/chemists', chemistRoutes);
 
+app.use('/api/tickets', ticketRoutes);
 
-const stockistRoutes = require('./src/stockist/Route');
 
 app.use('/api/locations', locationRoutes);
 

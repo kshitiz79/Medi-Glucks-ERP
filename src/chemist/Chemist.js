@@ -3,13 +3,13 @@ const mongoose = require('mongoose');
 
 const chemistSchema = new mongoose.Schema({
   firmName: { type: String, required: true },
-  contactPersonName: { type: String },
+  contactPersonName: { type: String ,required: true },
   designation: { type: String },
   mobileNo: { type: String, required: true },
   emailId: { type: String, unique: true },
   drugLicenseNumber: { type: String, unique: true },
   gstNo: { type: String },
-  address: { type: String },
+  address: { type: String ,required: true},
   latitude: { type: Number },
   longitude: { type: Number },
   yearsInBusiness: { type: Number },
@@ -23,3 +23,15 @@ const chemistSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Chemist', chemistSchema);
+
+
+
+
+
+
+
+
+
+
+
+
