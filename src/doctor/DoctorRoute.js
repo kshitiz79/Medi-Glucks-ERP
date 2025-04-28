@@ -29,8 +29,8 @@ router.post('/', async (req, res) => {
     name,
     specialization,
     location,
-    latitude, // New field
-    longitude, // New field
+    latitude,
+    longitude,
     email,
     phone,
     registration_number,
@@ -41,13 +41,12 @@ router.post('/', async (req, res) => {
     head_office,
   } = req.body;
 
-  const doctor = new Doctor({
+  const doctorData = {
     name,
     specialization,
     location,
-    latitude, // Include latitude
-    longitude, // Include longitude
-    email,
+    latitude,
+    longitude,
     phone,
     registration_number,
     years_of_experience,
@@ -55,7 +54,14 @@ router.post('/', async (req, res) => {
     gender,
     anniversary,
     headOffice: head_office,
-  });
+  };
+
+  // Only set email if it is provided and non-empty
+  if (email && email.trim() !== '') {
+    doctorData.email = email;
+  }
+
+  const doctor = new Doctor(doctorData);
 
   try {
     const newDoctor = await doctor.save();
@@ -64,7 +70,6 @@ router.post('/', async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
-
 // UPDATE a doctor
 router.put('/:id', async (req, res) => {
   try {
@@ -75,9 +80,13 @@ router.put('/:id', async (req, res) => {
     doctor.name = req.body.name || doctor.name;
     doctor.specialization = req.body.specialization || doctor.specialization;
     doctor.location = req.body.location || doctor.location;
-    doctor.latitude = req.body.latitude !== undefined ? req.body.latitude : doctor.latitude; // Handle new fields
+    doctor.latitude = req.body.latitude !== undefined ? req.body.latitude : doctor.latitude;
     doctor.longitude = req.body.longitude !== undefined ? req.body.longitude : doctor.longitude;
-    doctor.email = req.body.email || doctor.email;
+    if (req.body.email && req.body.email.trim() !== '') {
+      doctor.email = req.body.email; // Only update email if provided and non-empty
+    } else if (req.body.email === null || req.body.email === '') {
+      doctor.email = undefined; // Remove email if explicitly set to null or empty
+    }
     doctor.phone = req.body.phone || doctor.phone;
     doctor.registration_number = req.body.registration_number || doctor.registration_number;
     doctor.years_of_experience = req.body.years_of_experience || doctor.years_of_experience;
@@ -92,7 +101,6 @@ router.put('/:id', async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
-
 // DELETE a doctor
 router.delete('/:id', async (req, res) => {
   try {
