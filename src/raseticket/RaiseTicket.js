@@ -5,7 +5,7 @@ const ticketSchema = new mongoose.Schema({
   description: { type: String, required: true },
   image: { type: String },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Removed required: true
-  userName: { type: String, required: true },
+  userName: { type: String },
   createdAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
