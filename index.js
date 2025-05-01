@@ -28,7 +28,7 @@ app.use(cors({
     }
   },
   credentials: true,  
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE' , 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -68,7 +68,7 @@ const chemistRoutes = require('./src/chemist/Route');
 const ticketRoutes = require('./src/raseticket/Route');
 
 
-
+const notificatonRoutes = require('./src/notification/Route');
 
 
 
@@ -101,6 +101,10 @@ app.use('/api/orders', orderRoutes);
 
 
 app.use('/api/products', productRoutes);
+
+
+app.use('/api/notifications', notificatonRoutes);
+
 app.get('/', (req, res) => {
   res.send('Sales Management API is running');
 });
