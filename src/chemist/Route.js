@@ -1,4 +1,3 @@
-// src/routes/chemistRoutes.js
 const express = require('express');
 const router = express.Router();
 const Chemist = require('./../chemist/Chemist');
@@ -22,6 +21,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 // POST: Create a new chemist
+// Inside POST: Create a new chemist
 router.post('/', async (req, res) => {
   try {
     const {
@@ -36,17 +36,25 @@ router.post('/', async (req, res) => {
       latitude,
       longitude,
       yearsInBusiness,
-      annualTurnover,
+      annualTurnover, // Now expects an array of { year, amount }
       headOffice,
     } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(headOffice)) {
-      return res.status(400).json({ message: 'Invalid Head Office ID' });
+      return res.status(400).json({
+        success: "false",
+        message: 'Invalid Head Office ID',
+        Data: []
+      });
     }
 
     const officeExists = await HeadOffice.findById(headOffice);
     if (!officeExists) {
-      return res.status(400).json({ message: 'Head Office does not exist' });
+      return res.status(400).json({
+        success: "false",
+        message: 'Head Office does not exist',
+        Data: []
+      });
     }
 
     const chemist = new Chemist({
@@ -61,15 +69,23 @@ router.post('/', async (req, res) => {
       latitude,
       longitude,
       yearsInBusiness,
-      annualTurnover,
+      annualTurnover: annualTurnover || [], // Default to empty array if not provided
       headOffice,
     });
 
     await chemist.save();
-    res.status(201).json(chemist);
+    res.status(201).json({
+      success: "true",
+      message: "Chemist added successfully",
+      Data: chemist
+    });
   } catch (error) {
     console.error(error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
   }
 });
 
@@ -77,9 +93,17 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const chemists = await Chemist.find().populate('headOffice');
-    res.status(200).json(chemists);
+    res.status(200).json({
+      success: "true",
+      message: "Chemists fetched successfully",
+      Data: chemists
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
   }
 });
 
@@ -89,11 +113,23 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const chemist = await Chemist.findByIdAndDelete(id);
     if (!chemist) {
-      return res.status(404).json({ message: 'Chemist not found' });
+      return res.status(404).json({
+        success: "false",
+        message: 'Chemist not found',
+        Data: []
+      });
     }
-    res.status(200).json({ message: 'Chemist deleted successfully' });
+    res.status(200).json({
+      success: "true",
+      message: 'Chemist deleted successfully',
+      Data: []
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
   }
 });
 
@@ -103,12 +139,20 @@ router.post('/visits', async (req, res) => {
     const { chemistId, userId, date, notes } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(chemistId) || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'Invalid Chemist ID or User ID' });
+      return res.status(400).json({
+        success: "false",
+        message: 'Invalid Chemist ID or User ID',
+        Data: []
+      });
     }
 
     const chemist = await Chemist.findById(chemistId);
     if (!chemist) {
-      return res.status(404).json({ message: 'Chemist not found' });
+      return res.status(404).json({
+        success: "false",
+        message: 'Chemist not found',
+        Data: []
+      });
     }
 
     const visit = new ChemistVisit({
@@ -119,9 +163,17 @@ router.post('/visits', async (req, res) => {
     });
 
     await visit.save();
-    res.status(201).json(visit);
+    res.status(201).json({
+      success: "true",
+      message: "Visit scheduled successfully",
+      Data: visit
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
   }
 });
 
@@ -130,13 +182,25 @@ router.get('/visits/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'Invalid User ID' });
+      return res.status(400).json({
+        success: "false",
+        message: 'Invalid User ID',
+        Data: []
+      });
     }
 
     const visits = await ChemistVisit.find({ user: userId }).populate('chemist');
-    res.status(200).json(visits);
+    res.status(200).json({
+      success: "true",
+      message: "Visits fetched successfully",
+      Data: visits
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
   }
 });
 
@@ -148,20 +212,32 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 
     const visit = await ChemistVisit.findById(visitId).populate('chemist');
     if (!visit) {
-      return res.status(404).json({ message: 'Visit not found' });
+      return res.status(404).json({
+        success: "false",
+        message: 'Visit not found',
+        Data: []
+      });
     }
 
     if (!userLatitude || !userLongitude) {
       const latestLocation = await Location.findOne({ userId: visit.user }).sort({ timestamp: -1 });
       if (!latestLocation) {
-        return res.status(400).json({ message: 'No recent user location available. Please provide current location.' });
+        return res.status(400).json({
+          success: "false",
+          message: 'No recent user location available. Please provide current location.',
+          Data: []
+        });
       }
       userLatitude = latestLocation.latitude;
       userLongitude = latestLocation.longitude;
     }
 
     if (!visit.chemist.latitude || !visit.chemist.longitude) {
-      return res.status(400).json({ message: 'Chemist location not available.' });
+      return res.status(400).json({
+        success: "false",
+        message: 'Chemist location not available.',
+        Data: []
+      });
     }
 
     const distance = calculateDistance(
@@ -173,7 +249,9 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 
     if (distance > 200) {
       return res.status(400).json({
+        success: "false",
         message: `You are ${Math.round(distance)} meters away from the chemist. Please be within 200 meters to confirm.`,
+        Data: []
       });
     }
 
@@ -182,9 +260,17 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
     visit.longitude = userLongitude;
     await visit.save();
 
-    res.status(200).json(visit);
+    res.status(200).json({
+      success: "true",
+      message: "Visit confirmed",
+      Data: visit
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
   }
 });
 

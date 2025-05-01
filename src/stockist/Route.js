@@ -20,6 +20,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+// Inside POST: Create a new stockist
 router.post('/', async (req, res) => {
   try {
     const {
@@ -56,6 +57,27 @@ router.post('/', async (req, res) => {
     const officeExists = await HeadOffice.findById(headOffice);
     if (!officeExists) {
       return res.status(400).json({ message: 'Head Office does not exist' });
+    }
+
+    // Validate annualTurnover for last two years (2024 and 2023)
+    const currentYear = new Date().getFullYear();
+    const requiredYears = [currentYear - 1, currentYear - 2]; // e.g., [2024, 2023]
+    const turnoverYears = annualTurnover ? annualTurnover.map(t => t.year) : [];
+
+    const missingYears = requiredYears.filter(year => !turnoverYears.includes(year));
+    if (missingYears.length > 0) {
+      return res.status(400).json({
+        message: `Annual turnover data for years ${missingYears.join(', ')} is mandatory.`,
+      });
+    }
+
+    // Ensure amounts are provided and valid
+    for (const turnover of annualTurnover || []) {
+      if (!turnover.year || !turnover.amount || turnover.amount <= 0) {
+        return res.status(400).json({
+          message: 'Invalid turnover data. Year and positive amount are required.',
+        });
+      }
     }
 
     const stockist = new Stockist({
