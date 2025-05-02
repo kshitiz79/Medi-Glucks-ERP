@@ -215,7 +215,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       return res.status(404).json({
         success: "false",
         message: 'Visit not found',
-        Data: []
+        Data: []  // No data returned in case of failure
       });
     }
 
@@ -225,7 +225,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
         return res.status(400).json({
           success: "false",
           message: 'No recent user location available. Please provide current location.',
-          Data: []
+          Data: []  // No data returned in case of failure
         });
       }
       userLatitude = latestLocation.latitude;
@@ -236,7 +236,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       return res.status(400).json({
         success: "false",
         message: 'Chemist location not available.',
-        Data: []
+        Data: []  // No data returned in case of failure
       });
     }
 
@@ -247,13 +247,15 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       visit.chemist.longitude
     );
 
+    
     if (distance > 200) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: "false",
         message: `You are ${Math.round(distance)} meters away from the chemist. Please be within 200 meters to confirm.`,
-        Data: []
+        Data: []  
       });
     }
+
 
     visit.confirmed = true;
     visit.latitude = userLatitude;
@@ -262,16 +264,18 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 
     res.status(200).json({
       success: "true",
-      message: "Visit confirmed",
-      Data: visit
+      message: "Visit confirmed successfully",
+      Data: []  // No data returned after confirmation
     });
   } catch (error) {
     res.status(400).json({
       success: "false",
       message: error.message,
-      Data: []
+      Data: []  // No data returned in case of an error
     });
   }
 });
+
+
 
 module.exports = router;

@@ -183,24 +183,40 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
     const { visitId } = req.params;
     let { userLatitude, userLongitude } = req.body;
 
+    // Fetch the visit and populate the stockist data
     const visit = await StockistVisit.findById(visitId).populate('stockist');
     if (!visit) {
-      return res.status(404).json({ message: 'Visit not found' });
+      return res.status(404).json({
+        success: "false",
+        message: 'Visit not found',
+        Data: [] // No data returned
+      });
     }
 
+    // If no latitude/longitude provided, fetch the user's last known location
     if (!userLatitude || !userLongitude) {
       const latestLocation = await Location.findOne({ userId: visit.user }).sort({ timestamp: -1 });
       if (!latestLocation) {
-        return res.status(400).json({ message: 'No recent user location available. Please provide current location.' });
+        return res.status(400).json({
+          success: "false",
+          message: 'No recent user location available. Please provide current location.',
+          Data: [] // No data returned
+        });
       }
       userLatitude = latestLocation.latitude;
       userLongitude = latestLocation.longitude;
     }
 
+    // Ensure stockist location is available
     if (!visit.stockist.latitude || !visit.stockist.longitude) {
-      return res.status(400).json({ message: 'Stockist location not available.' });
+      return res.status(400).json({
+        success: "false",
+        message: 'Stockist location not available.',
+        Data: [] // No data returned
+      });
     }
 
+    // Calculate the distance between the user and the stockist
     const distance = calculateDistance(
       userLatitude,
       userLongitude,
@@ -208,21 +224,36 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       visit.stockist.longitude
     );
 
+    // If the user is more than 200 meters away, return a failure message
     if (distance > 200) {
-      return res.status(400).json({
+      return res.status(200).json({
+        success: "false",
         message: `You are ${Math.round(distance)} meters away from the stockist. Please be within 200 meters to confirm.`,
+        Data: [] // No data returned
       });
     }
 
+    // Confirm the visit if within the allowed distance
     visit.confirmed = true;
     visit.latitude = userLatitude;
     visit.longitude = userLongitude;
     await visit.save();
 
-    res.status(200).json(visit);
+    // Return success message without data
+    res.status(200).json({
+      success: "true",
+      message: "Visit confirmed successfully",
+      Data: [] // No data returned after confirmation
+    });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: [] // No data returned in case of error
+    });
   }
 });
+
 
 module.exports = router;
