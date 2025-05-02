@@ -14,7 +14,7 @@ router.post('/', async (req, res) => {
     title,
     body,
     sender: senderId,
-    recipients: isBroadcast ? [] : recipientIds.map(id => ({ user: id })),
+    recipients: isBroadcast ? [] : recipientIds.map(id => ({ user: id })), 
     isBroadcast,
   });
 
@@ -28,26 +28,24 @@ router.post('/', async (req, res) => {
 
 // Get notifications for the current user
 router.get('/', async (req, res) => {
+  const { userId } = req.query;
+  console.log('Fetching notifications for userId:', userId);
+  if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
   try {
-    const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
     const notifications = await Notification.find({
       $or: [
-        { 'recipients.user': userId },
-        { isBroadcast: true },
+        { isBroadcast: false, 'recipients.user': userId },
+        { isBroadcast: true, 'recipients.user': { $ne: userId } },
       ],
     })
       .populate('sender', 'name email')
       .sort('-createdAt');
-
+    console.log('Notifications found:', notifications);
     res.json(notifications);
   } catch (err) {
     console.error('Error fetching notifications:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
