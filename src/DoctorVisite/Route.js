@@ -98,7 +98,8 @@ router.put('/:visitId/confirm', async (req, res) => {
 
     // Check if distance is within 200 meters
     if (distance > 200) {
-      return res.status(403).json({
+      return res.status(200).json({
+        status: false,
         message: `You are ${Math.round(distance)} meters away from the doctor's location. Please be within 200 meters to confirm the visit.`,
       });
     }
@@ -108,7 +109,11 @@ router.put('/:visitId/confirm', async (req, res) => {
     visit.longitude = userLongitude;
     await visit.save();
 
-    res.json({ message: 'Visit confirmed', visit });
+    res.status(200).json({
+      status: true,
+      message: 'Visit confirmed successfully',
+      visit,
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
