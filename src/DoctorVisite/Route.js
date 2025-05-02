@@ -112,12 +112,13 @@ router.put('/:visitId/confirm', async (req, res) => {
     res.status(200).json({
       status: true,
       message: 'Visit confirmed successfully',
-      visit,
+
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
+
 
 // GET visits by user ID
 router.get('/user/:userId', async (req, res) => {
