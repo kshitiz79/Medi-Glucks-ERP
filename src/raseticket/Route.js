@@ -39,10 +39,9 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
-// POST /api/tickets - Raise a new ticket (no auth required)
 router.post('/', upload.single('image'), async (req, res) => {
   try {
-    const { title, description, userName, userId } = req.body;
+    const { title, description, userName, userId, status } = req.body;
     let imageUrl = null;
 
     // Validate required fields
@@ -50,9 +49,16 @@ router.post('/', upload.single('image'), async (req, res) => {
       return res.status(400).json({ msg: 'Title, description, and userName are required' });
     }
 
+    // Convert userId to ObjectId if it's a string
+    let userObjectId = userId;
+    if (userId && typeof userId === 'string' && !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ msg: 'Invalid userId provided' });
+    } else if (userId) {
+      userObjectId = mongoose.Types.ObjectId(userId);
+    }
+
     // Upload image to Cloudinary if provided
     if (req.file) {
-      console.log('Uploading image to Cloudinary...');
       const uploadPromise = new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: 'tickets' },
@@ -61,7 +67,6 @@ router.post('/', upload.single('image'), async (req, res) => {
               console.error('Cloudinary upload error:', error);
               return reject(new Error('Cloudinary upload failed'));
             }
-            console.log('Cloudinary upload successful:', result.secure_url);
             resolve(result.secure_url);
           }
         );
@@ -70,25 +75,30 @@ router.post('/', upload.single('image'), async (req, res) => {
       imageUrl = await uploadPromise;
     }
 
+    // Default to 'IN_PROGRESS' if no status is provided
+    const ticketStatus = status || 'IN PROGRESS';
+
     // Create new ticket
     const ticket = new Ticket({
       title,
       description,
       image: imageUrl,
-      userId: userId || 'anonymous', // Fallback to 'anonymous' if no userId provided
+      userId: userObjectId, // Ensure userId is a valid ObjectId
       userName,
+      status: ticketStatus,
     });
 
     // Save to database
     await ticket.save();
-    console.log('Ticket saved:', ticket);
 
     res.status(201).json({ msg: 'Ticket raised successfully', ticket });
   } catch (err) {
-    console.error('Raise ticket error:', err);
+    console.error('Error in ticket creation:', err);
     res.status(500).json({ msg: 'Server error', error: err.message });
   }
 });
+
+
 
 // GET /api/tickets - Get all tickets (Admin only)
 router.get('/', authMiddleware, adminMiddleware, async (req, res) => {

@@ -29,25 +29,29 @@ router.post('/', async (req, res) => {
 // Get notifications for the current user
 router.get('/', async (req, res) => {
   const { userId } = req.query;
-  console.log('Fetching notifications for userId:', userId);
-  if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
 
   try {
+    // Fetch notifications for the user, regardless of whether they are read or unread
     const notifications = await Notification.find({
       $or: [
-        { isBroadcast: false, 'recipients.user': userId },
-        { isBroadcast: true, 'recipients.user': { $ne: userId } },
+        { 'recipients.user': userId },  // All notifications where the user is a recipient
+        { isBroadcast: true },           // Include broadcast notifications that aren't tied to a specific user
       ],
     })
-      .populate('sender', 'name email')
-      .sort('-createdAt');
-    console.log('Notifications found:', notifications);
+      .populate('sender', 'name email')  // Populate the sender's information (e.g., name, email)
+      .sort('-createdAt');               // Sort by creation time in descending order
+
     res.json(notifications);
   } catch (err) {
     console.error('Error fetching notifications:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // Get unread notification count for the current user
 router.get('/count', async (req, res) => {
