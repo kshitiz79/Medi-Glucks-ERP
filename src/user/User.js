@@ -1,4 +1,3 @@
-// models/User.js
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -9,8 +8,6 @@ const userSchema = new mongoose.Schema({
   role: { 
     type: String, 
     enum: [
-    
-   
       'Super Admin', 
       'Admin', 
       'Opps Team', 
@@ -23,7 +20,12 @@ const userSchema = new mongoose.Schema({
     ],
     required: true 
   },
-  phone: { type: String },
+  pin: { type: String },  
+  phone: { type: String }, // Optional, as still used in /register
+  emailVerified: { type: Boolean, default: false }, 
+  otp: { type: String }, 
+  otpExpire: { type: Date }, 
+  pinExpire: { type: Date },  
   headOffice: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'HeadOffice' 
