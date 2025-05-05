@@ -263,7 +263,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Invalid Head Office ID format.',
-        data: [],
+ 
       });
     }
 
@@ -275,7 +275,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'No stockists found for the specified head office.',
-        data: [],
+    
       });
     }
 
@@ -293,7 +293,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching stockists. Please try again later.',
-      data: [],
+ 
     });
   }
 })
