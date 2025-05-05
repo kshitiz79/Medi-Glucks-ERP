@@ -256,16 +256,47 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 });
 
 
-
 router.get('/by-head-office/:headOfficeId', async (req, res) => {
   try {
-    const stockists = await Stockist.find({ headOffice: req.params.headOfficeId }).populate('headOffice');
-    res.json(stockists);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+    // Validate headOfficeId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.headOfficeId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Head Office ID format.',
+        data: [],
+      });
+    }
 
+    // Fetch stockists by head office ID and populate the related head office data
+    const stockists = await Stockist.find({ headOffice: req.params.headOfficeId }).populate('headOffice');
+
+    // Check if no stockists are found
+    if (stockists.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No stockists found for the specified head office.',
+        data: [],
+      });
+    }
+
+    // Return the found stockists with a success message
+    res.status(200).json({
+      success: true,
+      message: 'Stockists successfully retrieved.',
+      data: stockists,
+    });
+  } catch (error) {
+    // Log the error for internal tracking
+    console.error('Error fetching stockists by head office:', error);
+
+    // Return a professional error response
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while fetching stockists. Please try again later.',
+      data: [],
+    });
+  }
+})
 
 
 

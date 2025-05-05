@@ -280,14 +280,45 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 
 router.get('/by-head-office/:headOfficeId', async (req, res) => {
   try {
+    // Validate headOfficeId format (optional but recommended)
+    if (!mongoose.Types.ObjectId.isValid(req.params.headOfficeId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Head Office ID format.',
+        data: [],
+      });
+    }
+
+    // Fetch chemists by head office ID and populate the related head office data
     const chemists = await Chemist.find({ headOffice: req.params.headOfficeId }).populate('headOffice');
-    res.json(chemists);
+
+    // Check if any chemists are found
+    if (chemists.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No chemists found for the specified head office.',
+        data: [],
+      });
+    }
+
+    // Return the found chemists with a success message
+    res.status(200).json({
+      success: true,
+      message: 'Chemists successfully retrieved.',
+      data: chemists,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Log the error for internal tracking
+    console.error('Error fetching chemists by head office:', error);
+
+    // Return a professional error response with a message
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while fetching chemists. Please try again later.',
+      data: [],
+    });
   }
 });
-
-
 
 
 
