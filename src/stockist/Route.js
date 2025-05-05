@@ -256,4 +256,22 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 });
 
 
+
+router.get('/by-head-office/:headOfficeId', async (req, res) => {
+  try {
+    const stockists = await Stockist.find({ headOffice: req.params.headOfficeId }).populate('headOffice');
+    res.json(stockists);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
+
+
+
+
+
+
+
 module.exports = router;

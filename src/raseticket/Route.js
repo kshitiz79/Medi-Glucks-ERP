@@ -103,17 +103,35 @@ router.post('/', upload.single('image'), async (req, res) => {
 // GET /api/tickets - Get all tickets (Admin only)
 router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    // Fetch tickets and populate userId with user details (name, email)
     const tickets = await Ticket.find().populate('userId', 'name email');
-    const sanitizedTickets = tickets.map((ticket) => ({
-      ...ticket.toObject(),
-      userId: ticket.userId._id.toString(),
-    }));
+    
+    // Sanitize the tickets to handle cases where userId might be missing
+    const sanitizedTickets = tickets.map((ticket) => {
+      if (ticket.userId && ticket.userId._id) {
+        return {
+          ...ticket.toObject(),
+          userId: ticket.userId._id.toString(),
+        };
+      } else {
+        return {
+          ...ticket.toObject(),
+          userId: 'Unknown User',  // Fallback if userId is missing
+        };
+      }
+    });
+    
+
+    
+
+    // Send the sanitized tickets as the response
     res.json(sanitizedTickets);
   } catch (err) {
     console.error('Get tickets error:', err);
     res.status(500).json({ msg: 'Server error' });
   }
 });
+
 
 // GET /api/tickets/user - Get tickets for the logged-in user
 router.get('/user', authMiddleware, async (req, res) => {

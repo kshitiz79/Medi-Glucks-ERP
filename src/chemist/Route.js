@@ -278,4 +278,20 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 
 
 
+router.get('/by-head-office/:headOfficeId', async (req, res) => {
+  try {
+    const chemists = await Chemist.find({ headOffice: req.params.headOfficeId }).populate('headOffice');
+    res.json(chemists);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
+
+
+
+
+
+
 module.exports = router;
