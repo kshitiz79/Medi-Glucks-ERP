@@ -223,7 +223,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       const latestLocation = await Location.findOne({ userId: visit.user }).sort({ timestamp: -1 });
       if (!latestLocation) {
         return res.status(400).json({
-          success: "false",
+          success: false,
           message: 'No recent user location available. Please provide current location.',
           Data: []  // No data returned in case of failure
         });
@@ -234,7 +234,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
 
     if (!visit.chemist.latitude || !visit.chemist.longitude) {
       return res.status(400).json({
-        success: "false",
+        success: false,
         message: 'Chemist location not available.',
         Data: []  // No data returned in case of failure
       });
@@ -250,7 +250,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
     
     if (distance > 200) {
       return res.status(200).json({
-        success: "false",
+        success: false,
         message: `You are ${Math.round(distance)} meters away from the chemist. Please be within 200 meters to confirm.`,
         Data: []  
       });
@@ -263,15 +263,15 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
     await visit.save();
 
     res.status(200).json({
-      success: "true",
+      success: true,
       message: "Visit confirmed successfully",
       Data: []  // No data returned after confirmation
     });
   } catch (error) {
     res.status(400).json({
-      success: "false",
+      success: false,
       message: error.message,
-      Data: []  // No data returned in case of an error
+      Data: [] 
     });
   }
 });
