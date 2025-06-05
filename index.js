@@ -15,8 +15,8 @@ const app = express();
 app.use(express.json({ limit: '25mb' })); 
 app.use(helmet());
 const allowedOrigins = [
-  'http://localhost:5173',  
-  'https://gluckscare.com'  
+  'http://localhost:5173',  // For local development
+  'https://gluckscare.com'  // Your frontend production domain
 ];
 
 app.use(cors({
@@ -27,10 +27,11 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));  // Block request
     }
   },
-  credentials: true,  
-  methods: ['GET', 'POST', 'PUT', 'DELETE' , 'PATCH'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+;
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
