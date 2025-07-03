@@ -76,6 +76,11 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(400).json({ message: error.message || 'Failed to create doctor' });
   }
 });
+
+
+
+
+
 // UPDATE a doctor
 router.put('/:id', async (req, res) => {
   try {
