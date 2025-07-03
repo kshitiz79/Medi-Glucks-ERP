@@ -119,6 +119,31 @@ router.put('/:visitId/confirm', async (req, res) => {
   }
 });
 
+// UPDATE (reschedule) a visit
+router.put('/:visitId', async (req, res) => {
+  try {
+    const { doctorId, date, notes } = req.body;
+    const visit = await DoctorVisit.findById(req.params.visitId);
+    if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+    // Optionally allow changing the doctor
+    if (doctorId) {
+      const doctor = await Doctor.findById(doctorId);
+      if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+      visit.doctor = doctorId;
+    }
+
+    // Update date and notes
+    if (date)  visit.date  = date;
+    if (notes) visit.notes = notes;
+
+    await visit.save();
+    res.json({ message: 'Visit rescheduled', visit });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 
 // GET visits by user ID
 router.get('/user/:userId', async (req, res) => {

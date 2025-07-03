@@ -59,8 +59,6 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    const headOffice = await HeadOffice.findOne({});
-
     res.json({
       token,
       user: {
@@ -70,14 +68,14 @@ router.post('/login', async (req, res) => {
         role: user.role,
         emailVerified: user.emailVerified,
         phone: user.phone,
+        headOffice: user.headOffice,
       },
-      headOffice: headOffice ? { id: headOffice._id, name: headOffice.name } : null,
     });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ msg: 'Server error' });
   }
-});
+})
 
 // GENERATE OTP (Email-based)
 router.post('/generate-otp', async (req, res) => {

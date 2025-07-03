@@ -6,41 +6,68 @@ const User = require('./../user/User');
 
 // POST /api/expenses - Create a new expense
 router.post('/', async (req, res) => {
-  console.log('POST /api/expenses received with body:', req.body);
   try {
-    const { userId, category, amount, description, bill } = req.body;
-    
-    // Look up the user using the provided userId.
+    const {
+      userId,
+      category,
+      description,
+      bill,            // base64 string (optional)
+      amount: manualAmount,
+      travelDetails,   // array of { from, to, km }
+      dailyAllowanceType // headoffice or outside
+    } = req.body;
+
+    // 1. Fetch user to get name
     const user = await User.findById(userId);
     if (!user) {
-      console.log('User not found for userId:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
+    // 2. Upload bill if provided
     let billUrl = '';
     if (bill) {
-      // Upload the base64-encoded image to Cloudinary.
       const result = await cloudinary.uploader.upload(bill, {
         folder: 'expenses',
       });
       billUrl = result.secure_url;
     }
 
-    // Create new expense including user's name.
+    // 3. Compute amount for travel vs. daily
+    let computedAmount = manualAmount;
+    let totalDistanceKm = 0;
+    if (category === 'travel' && Array.isArray(travelDetails)) {
+      totalDistanceKm = travelDetails
+        .reduce((sum, leg) => sum + Number(leg.km || 0), 0);
+      computedAmount = totalDistanceKm * 2.40;
+    } else if (category === 'daily') {
+      computedAmount = dailyAllowanceType === 'headoffice' ? 150 : 175;
+    }
+
+    // 4. Build and save expense document
     const expense = new Expense({
-      user: userId,
+      user: user._id,
       userName: user.name,
       category,
-      amount,
       description,
       bill: billUrl,
       status: 'pending',
       date: new Date(),
+      amount: computedAmount,
+      // only include travelDetails and summary fields if travel
+      ...(category === 'travel' && {
+        travelDetails,
+        totalDistanceKm,
+        ratePerKm: 2.40
+      }),
+      // only include dailyAllowanceType if daily
+      ...(category === 'daily' && {
+        dailyAllowanceType
+      })
     });
 
     const createdExpense = await expense.save();
-    console.log('Expense created successfully:', createdExpense);
     res.status(201).json(createdExpense);
+
   } catch (error) {
     console.error('Error in POST /api/expenses:', error);
     res.status(500).json({ message: error.message });
@@ -51,13 +78,8 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { userId } = req.query;
-    let expenses;
-    if (userId) {
-      expenses = await Expense.find({ user: userId });
-    } else {
-      // No userId provided: return all expenses.
-      expenses = await Expense.find({});
-    }
+    const filter = userId ? { user: userId } : {};
+    const expenses = await Expense.find(filter);
     res.json(expenses);
   } catch (error) {
     console.error('Error in GET /api/expenses:', error);
@@ -68,8 +90,7 @@ router.get('/', async (req, res) => {
 // GET /api/expenses/:expenseId - Fetch a single expense by its ID
 router.get('/:expenseId', async (req, res) => {
   try {
-    const { expenseId } = req.params;
-    const expense = await Expense.findById(expenseId);
+    const expense = await Expense.findById(req.params.expenseId);
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
     }
@@ -80,36 +101,30 @@ router.get('/:expenseId', async (req, res) => {
   }
 });
 
-// PUT /api/expenses/:expenseId/approve - Approve an expense (no restrictions)
+// PUT /api/expenses/:expenseId/approve - Approve an expense
 router.put('/:expenseId/approve', async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.expenseId);
-    if (!expense) {
-      return res.status(404).json({ message: 'Expense not found' });
-    }
-    
+    if (!expense) return res.status(404).json({ message: 'Expense not found' });
     expense.status = 'approved';
-    const updatedExpense = await expense.save();
-    res.json(updatedExpense);
+    await expense.save();
+    res.json(expense);
   } catch (error) {
-    console.error('Error in approving expense:', error);
+    console.error('Error approving expense:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// PUT /api/expenses/:expenseId/reject - Reject an expense (no restrictions)
+// PUT /api/expenses/:expenseId/reject - Reject an expense
 router.put('/:expenseId/reject', async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.expenseId);
-    if (!expense) {
-      return res.status(404).json({ message: 'Expense not found' });
-    }
-    
+    if (!expense) return res.status(404).json({ message: 'Expense not found' });
     expense.status = 'rejected';
-    const updatedExpense = await expense.save();
-    res.json(updatedExpense);
+    await expense.save();
+    res.json(expense);
   } catch (error) {
-    console.error('Error in rejecting expense:', error);
+    console.error('Error rejecting expense:', error);
     res.status(500).json({ message: error.message });
   }
 });
