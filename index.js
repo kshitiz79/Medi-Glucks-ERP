@@ -16,7 +16,8 @@ app.use(helmet());
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://gluckscare.com'
+  'https://gluckscare.com',
+  'https://gluckscare.com',
 ];
 
 app.use(cors({

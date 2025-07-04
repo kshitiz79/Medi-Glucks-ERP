@@ -61,6 +61,7 @@ router.get('/', async (req, res) => {
 });
 
 // CONFIRM a visit
+// CONFIRM a visit
 router.put('/:visitId/confirm', async (req, res) => {
   try {
     const visit = await DoctorVisit.findById(req.params.visitId).populate('doctor');
@@ -84,26 +85,30 @@ router.put('/:visitId/confirm', async (req, res) => {
     }
 
     const doctor = visit.doctor;
-    if (!doctor.latitude || !doctor.longitude) {
-      return res.status(400).json({ message: 'Doctor location not available' });
+
+    // Check if doctor's location is available for distance calculation
+    if (doctor.latitude && doctor.longitude) {
+      // Calculate distance
+      const distance = getDistance(
+        userLatitude,
+        userLongitude,
+        doctor.latitude,
+        doctor.longitude
+      );
+
+      // Check if distance is within 200 meters
+      if (distance > 200) {
+        return res.status(200).json({
+          status: false,
+          message: `You are ${Math.round(distance)} meters away from the doctor's location. Please be within 200 meters to confirm the visit.`,
+        });
+      }
+    } else {
+      // Log that doctor's location is not available, but proceed with confirmation
+      console.log(`Doctor ${doctor._id} has no location data. Skipping distance check.`);
     }
 
-    // Calculate distance
-    const distance = getDistance(
-      userLatitude,
-      userLongitude,
-      doctor.latitude,
-      doctor.longitude
-    );
-
-    // Check if distance is within 200 meters
-    if (distance > 200) {
-      return res.status(200).json({
-        status: false,
-        message: `You are ${Math.round(distance)} meters away from the doctor's location. Please be within 200 meters to confirm the visit.`,
-      });
-    }
-
+    // Confirm the visit and save user's location
     visit.confirmed = true;
     visit.latitude = userLatitude;
     visit.longitude = userLongitude;
@@ -112,9 +117,9 @@ router.put('/:visitId/confirm', async (req, res) => {
     res.status(200).json({
       status: true,
       message: 'Visit confirmed successfully',
-
     });
   } catch (error) {
+    console.error('Confirm visit error:', error);
     res.status(400).json({ message: error.message });
   }
 });
