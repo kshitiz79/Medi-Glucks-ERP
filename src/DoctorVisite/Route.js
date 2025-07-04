@@ -1,10 +1,10 @@
-// backend/routes/doctorVisits.js
 const express = require('express');
 const router = express.Router();
 const DoctorVisit = require('./DoctorVisit');
 const Doctor = require('../doctor/Doctor');
 const User = require('./../user/User');
 const Location = require('../location/Location');
+const Product = require('./../product/Product'); // Import Product model
 
 // Haversine formula for distance calculation
 const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -24,7 +24,7 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 // CREATE a new doctor visit
 router.post('/', async (req, res) => {
   try {
-    const { doctorId, userId, date, notes } = req.body;
+    const { doctorId, userId, date, notes, productId, remark } = req.body;
 
     const doctor = await Doctor.findById(doctorId);
     if (!doctor) {
@@ -35,11 +35,22 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Validate productId if provided
+    let product = null;
+    if (productId) {
+      product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+    }
+
     const newVisit = new DoctorVisit({
       doctor: doctorId,
       user: userId,
       date,
       notes,
+      product: productId || null, // Optional product
+      remark: remark || null, // Optional remark
     });
     await newVisit.save();
     res.status(201).json({ message: 'Visit created', visit: newVisit });
@@ -53,14 +64,14 @@ router.get('/', async (req, res) => {
   try {
     const visits = await DoctorVisit.find()
       .populate('doctor', 'name specialization')
-      .populate('user', 'name email');
+      .populate('user', 'name email')
+      .populate('product', 'name'); // Populate product name
     res.json(visits);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// CONFIRM a visit
 // CONFIRM a visit
 router.put('/:visitId/confirm', async (req, res) => {
   try {
@@ -69,6 +80,7 @@ router.put('/:visitId/confirm', async (req, res) => {
 
     let userLatitude = req.body.userLatitude;
     let userLongitude = req.body.userLongitude;
+    const { productId, remark } = req.body;
 
     // If coordinates not provided, fetch the latest from Location model
     if (!userLatitude || !userLongitude) {
@@ -108,6 +120,20 @@ router.put('/:visitId/confirm', async (req, res) => {
       console.log(`Doctor ${doctor._id} has no location data. Skipping distance check.`);
     }
 
+    // Validate productId if provided
+    if (productId) {
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      visit.product = productId;
+    }
+
+    // Update remark if provided
+    if (remark) {
+      visit.remark = remark;
+    }
+
     // Confirm the visit and save user's location
     visit.confirmed = true;
     visit.latitude = userLatitude;
@@ -127,7 +153,7 @@ router.put('/:visitId/confirm', async (req, res) => {
 // UPDATE (reschedule) a visit
 router.put('/:visitId', async (req, res) => {
   try {
-    const { doctorId, date, notes } = req.body;
+    const { doctorId, date, notes, productId, remark } = req.body;
     const visit = await DoctorVisit.findById(req.params.visitId);
     if (!visit) return res.status(404).json({ message: 'Visit not found' });
 
@@ -138,9 +164,17 @@ router.put('/:visitId', async (req, res) => {
       visit.doctor = doctorId;
     }
 
-    // Update date and notes
-    if (date)  visit.date  = date;
+    // Validate productId if provided
+    if (productId) {
+      const product = await Product.findById(productId);
+      if (!product) return res.status(404).json({ message: 'Product not found' });
+      visit.product = productId;
+    }
+
+    // Update date, notes, and remark
+    if (date) visit.date = date;
     if (notes) visit.notes = notes;
+    if (remark) visit.remark = remark;
 
     await visit.save();
     res.json({ message: 'Visit rescheduled', visit });
@@ -149,13 +183,13 @@ router.put('/:visitId', async (req, res) => {
   }
 });
 
-
 // GET visits by user ID
 router.get('/user/:userId', async (req, res) => {
   try {
     const visits = await DoctorVisit.find({ user: req.params.userId })
       .populate('doctor', 'name specialization')
-      .populate('user', 'name');
+      .populate('user', 'name')
+      .populate('product', 'name'); // Populate product name
     res.json(visits);
   } catch (error) {
     res.status(500).json({ message: error.message });
