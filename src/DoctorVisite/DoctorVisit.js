@@ -1,4 +1,3 @@
-// backend/models/DoctorVisit.js
 const mongoose = require('mongoose');
 
 const doctorVisitSchema = new mongoose.Schema({
@@ -19,11 +18,24 @@ const doctorVisitSchema = new mongoose.Schema({
   notes: {
     type: String,
   },
-  latitude: { type: Number }, 
-  longitude: { type: Number }, 
+  latitude: { 
+    type: Number 
+  }, 
+  longitude: { 
+    type: Number 
+  }, 
   confirmed: {
     type: Boolean,
     default: false,
+  },
+  remark: {
+    type: String,
+    required: false, // Remark is optional
+  },
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: false, // Product is optional
   },
 }, { timestamps: true });
 

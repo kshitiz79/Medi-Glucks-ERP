@@ -1,4 +1,3 @@
-// src/location/locationRoutes.js
 const express = require('express');
 const router = express.Router();
 const Location = require('./Location');
@@ -6,15 +5,16 @@ const Location = require('./Location');
 // POST route to save location data
 router.post('/', async (req, res) => {
   try {
-    const { latitude, longitude, userName, userId } = req.body;
+    const { latitude, longitude, userName, userId, deviceId } = req.body;
 
     if (latitude === undefined || longitude === undefined) {
       return res.status(400).json({ message: "Latitude and longitude are required." });
     }
 
     const location = new Location({
-      userId, // Use userId from request body
+      userId,
       userName,
+      deviceId, 
       latitude,
       longitude,
     });
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET route to fetch location data for admin
+// GET route to fetch all locations
 router.get('/', async (req, res) => {
   try {
     const locations = await Location.find().sort({ timestamp: -1 });
