@@ -31,8 +31,17 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'HeadOffice',
     required: function () {
-      // HeadOffice is required for all roles except Area Manager and Zonal Manager
-      return this.role !== 'Area Manager' && this.role !== 'Zonal Manager';
+      // HeadOffice is only required for Manager and User roles
+      const rolesWithoutHeadOffice = [
+        'Super Admin',
+        'Admin',
+        'Opps Team', 
+        'National Head',
+        'State Head',
+        'Zonal Manager',
+        'Area Manager'
+      ];
+      return !rolesWithoutHeadOffice.includes(this.role);
     }
   },
   // For Area Managers, they report to a Manager instead of HeadOffice

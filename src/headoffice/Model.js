@@ -8,14 +8,6 @@ const headOfficeSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    address: {
-      type: String,
-      trim: true
-    },
-    city: {
-      type: String,
-      trim: true
-    },
     state: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'State',
@@ -24,15 +16,6 @@ const headOfficeSchema = new mongoose.Schema(
     pincode: {
       type: String,
       trim: true
-    },
-    phone: {
-      type: String,
-      trim: true
-    },
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true
     },
     isActive: {
       type: Boolean,
