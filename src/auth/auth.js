@@ -15,8 +15,20 @@ router.post('/register', async (req, res) => {
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ msg: 'User already exists' });
 
-    if (role && !['Admin', 'User'].includes(role)) {
-      return res.status(400).json({ msg: 'Invalid role. Must be Admin or User' });
+    const validRoles = [
+      'Super Admin', 
+      'Admin', 
+      'Opps Team', 
+      'National Head', 
+      'State Head', 
+      'Zonal Manager', 
+      'Area Manager', 
+      'Manager',
+      'User'
+    ];
+    
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({ msg: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
     }
 
     user = new User({

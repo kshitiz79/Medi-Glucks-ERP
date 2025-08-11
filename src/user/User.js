@@ -6,32 +6,61 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   expenses: { type: String }, // Consider changing to Number or Array if appropriate
-  role: { 
-    type: String, 
+  role: {
+    type: String,
     enum: [
-      'Super Admin', 
-      'Admin', 
-      'Opps Team', 
-      'National Head', 
-      'State Head', 
-      'Zonal Manager', 
-      'Area Manager', 
+      'Super Admin',
+      'Admin',
+      'Opps Team',
+      'National Head',
+      'State Head',
+      'Zonal Manager',
+      'Area Manager',
       'Manager',
       'User'
     ],
-    required: true 
+    required: true
   },
-  pin: { type: String },  
+  pin: { type: String },
   phone: { type: String },
-  emailVerified: { type: Boolean, default: false }, 
-  otp: { type: String }, 
-  otpExpire: { type: Date }, 
-  pinExpire: { type: Date },  
-  headOffice: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  emailVerified: { type: Boolean, default: false },
+  otp: { type: String },
+  otpExpire: { type: Date },
+  pinExpire: { type: Date },
+  headOffice: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'HeadOffice',
-    required: true // Make headOffice required
+    required: function () {
+      // HeadOffice is required for all roles except Area Manager and Zonal Manager
+      return this.role !== 'Area Manager' && this.role !== 'Zonal Manager';
+    }
   },
+  // For Area Managers, they report to a Manager instead of HeadOffice
+  manager: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: function () {
+      return false; // Not required anymore since Area Managers can have multiple managers
+    }
+  },
+  // For Area Managers, they can report to multiple Managers
+  managers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // For Zonal Managers, they manage Area Managers
+  areaManagers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  // For State Head role
+  state: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'State',
+    required: function () {
+      return this.role === 'State Head';
+    }
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

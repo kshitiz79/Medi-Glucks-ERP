@@ -2,11 +2,14 @@
 const express = require('express');
 const router = express.Router();
 // Make sure the path and file name match exactly
-const { getAllUsers, getUserById, updateUser, deleteUser } = require('./controller');
+const { getAllUsers, getUserById, updateUser, deleteUser, getUsersByRole } = require('./controller');
 
 
 // GET all users
 router.get('/', getAllUsers);
+
+// GET users by role
+router.get('/role/:role', getUsersByRole);
 
 // GET one user by ID
 router.get('/:id', getUserById);
