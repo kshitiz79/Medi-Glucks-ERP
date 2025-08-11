@@ -7,7 +7,39 @@ const User = require('./User');
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find(); // or add filters if needed
+    const { role } = req.query;
+    let query = {};
+    
+    if (role) {
+      query.role = role;
+    }
+    
+    const users = await User.find(query)
+      .populate('headOffice', 'name')
+      .populate('manager', 'name email role')
+      .populate('managers', 'name email role')
+      .populate('areaManagers', 'name email role')
+      .populate('state', 'name code');
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+/**
+ * Get users by role
+ * GET /api/users/role/:role
+ */
+exports.getUsersByRole = async (req, res) => {
+  try {
+    const { role } = req.params;
+    const users = await User.find({ role })
+      .populate('headOffice', 'name')
+      .populate('manager', 'name email role')
+      .populate('managers', 'name email role')
+      .populate('areaManagers', 'name email role')
+      .populate('state', 'name code');
     res.json(users);
   } catch (err) {
     console.error(err);

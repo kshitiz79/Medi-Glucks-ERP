@@ -124,6 +124,20 @@ router.get('/', async (req, res) => {
   }
 });
 
+// PUT: Update a stockist
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedStockist = await Stockist.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedStockist) {
+      return res.status(404).json({ message: 'Stockist not found' });
+    }
+    res.status(200).json(updatedStockist);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -161,6 +175,16 @@ router.post('/visits', async (req, res) => {
     res.status(201).json(visit);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// Get all visits (for admin)
+router.get('/visits', async (req, res) => {
+  try {
+    const visits = await StockistVisit.find().populate('stockist').populate('user');
+    res.status(200).json(visits);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

@@ -107,6 +107,32 @@ router.get('/', async (req, res) => {
   }
 });
 
+// PUT: Update a chemist
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedChemist = await Chemist.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedChemist) {
+      return res.status(404).json({
+        success: "false",
+        message: 'Chemist not found',
+        Data: []
+      });
+    }
+    res.status(200).json({
+      success: "true",
+      message: 'Chemist updated successfully',
+      Data: updatedChemist
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
+  }
+});
+
 // DELETE: Delete a chemist
 router.delete('/:id', async (req, res) => {
   try {
@@ -170,6 +196,20 @@ router.post('/visits', async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
+  }
+});
+
+// GET: Fetch all visits (for admin)
+router.get('/visits', async (req, res) => {
+  try {
+    const visits = await ChemistVisit.find().populate('chemist').populate('user');
+    res.status(200).json(visits);
+  } catch (error) {
+    res.status(500).json({
       success: "false",
       message: error.message,
       Data: []
