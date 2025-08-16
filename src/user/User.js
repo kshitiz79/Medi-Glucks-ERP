@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
       const rolesWithoutHeadOffice = [
         'Super Admin',
         'Admin',
-        'Opps Team', 
+        'Opps Team',
         'National Head',
         'State Head',
         'Zonal Manager',

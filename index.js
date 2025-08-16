@@ -16,15 +16,20 @@ app.use(helmet());
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
   'https://gluckscare.com',
   'https://gluckscare.com',
+  'https://sales-rep-visite.gluckscare.com/',
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
+    console.log('CORS Origin:', origin); // Debug log
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log('CORS rejected origin:', origin); // Debug log
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -76,6 +81,7 @@ mongoose.connect(process.env.MONGO_URI, {
     const chemistRoutes = require('./src/chemist/Route');
     const ticketRoutes = require('./src/raseticket/Route');
     const notificationRoutes = require('./src/notification/Route');
+    const visitRoutes = require('./src/visit/visitRoutes');
 
     app.use('/api/auth', authRoutes);
     app.use('/api/users', userRoutes);
@@ -94,6 +100,7 @@ mongoose.connect(process.env.MONGO_URI, {
     app.use('/api/chemists', chemistRoutes);
     app.use('/api/tickets', ticketRoutes);
     app.use('/api/notifications', notificationRoutes);
+    app.use('/api/visits', visitRoutes);
 
     app.get('/', (req, res) => {
       res.send('Sales Management API is running');
