@@ -20,7 +20,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://gluckscare.com',
   'https://gluckscare.com',
-  'https://sales-rep-visite.gluckscare.com/',
+  'https://sales-rep-visite.gluckscare.com',
 ];
 
 app.use(cors({
