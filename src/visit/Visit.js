@@ -5,17 +5,16 @@ require('../product/Product');
 
 const visitSchema = new mongoose.Schema({
   // Visit Information
-  dateOfVisit: { type: Date, required: true },
-  dayOfWeek: { type: String, required: true },
   representativeName: { type: String, required: true },
   representativeId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  areaTerritory: { type: String, required: true },
+  areaTerritory: { type: String, required: false },
   visitedWithCoworker: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   
   // Doctor Details
-  doctorChemistName: { type: String, required: true },
-  specialisation: { type: String, required: true },
-  purposeOfVisit: { type: String, required: true },
+  doctorChemistName: { type: String, required: false },
+  specialisation: { type: String, required: false },
+  totalNumberOfVisits: { type: Number, default: 1, required: false },
+  purposeOfVisit: { type: String, required: false },
   
   // Discussion & Products
   productsPromoted: { 
@@ -23,8 +22,8 @@ const visitSchema = new mongoose.Schema({
     default: [],
     required: false 
   },
-  keyDiscussionPoints: { type: String, required: true },
-  doctorInterestLevel: { type: String, required: true },
+  keyDiscussionPoints: { type: String, required: false },
+  doctorInterestLevel: { type: String, required: false },
   doctorQueries: { type: String, required: false },
   expectedMonthlyVolume: { type: String, required: false },
   
@@ -40,7 +39,6 @@ const visitSchema = new mongoose.Schema({
     required: false 
   },
   actualOrdersSales: { type: String, required: false },
-  followUpDate: { type: Date, required: false },
   
   // Market Analysis
   competitorBrands: { type: String, required: false },

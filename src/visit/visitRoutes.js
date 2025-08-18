@@ -23,12 +23,9 @@ router.post('/', auth, async (req, res) => {
             representativeName: user.name,
         };
 
-        // Convert date strings to Date objects
-        if (visitData.dateOfVisit) {
-            visitData.dateOfVisit = new Date(visitData.dateOfVisit);
-        }
-        if (visitData.followUpDate) {
-            visitData.followUpDate = new Date(visitData.followUpDate);
+        // Handle visitedWithCoworker - remove if empty string
+        if (visitData.visitedWithCoworker === '' || visitData.visitedWithCoworker === null || visitData.visitedWithCoworker === undefined) {
+            delete visitData.visitedWithCoworker;
         }
 
         // Ensure product arrays are properly formatted and contain valid ObjectIds
@@ -72,18 +69,13 @@ router.post('/', auth, async (req, res) => {
 // GET all visits (Admin only)
 router.get('/', auth, async (req, res) => {
     try {
-        const { page = 1, limit = 10, status, representative, startDate, endDate } = req.query;
+        const { page = 1, limit = 10, status, representative } = req.query;
 
         // Build filter object
         const filter = {};
 
         if (status) filter.status = status;
         if (representative) filter.representativeId = representative;
-        if (startDate || endDate) {
-            filter.dateOfVisit = {};
-            if (startDate) filter.dateOfVisit.$gte = new Date(startDate);
-            if (endDate) filter.dateOfVisit.$lte = new Date(endDate);
-        }
 
         const visits = await Visit.find(filter)
             .sort({ createdAt: -1 })
@@ -111,16 +103,11 @@ router.get('/', auth, async (req, res) => {
 // GET visits by current user
 router.get('/my-visits', auth, async (req, res) => {
     try {
-        const { page = 1, limit = 10, status, startDate, endDate } = req.query;
+        const { page = 1, limit = 10, status } = req.query;
 
         const filter = { representativeId: req.user.id };
 
         if (status) filter.status = status;
-        if (startDate || endDate) {
-            filter.dateOfVisit = {};
-            if (startDate) filter.dateOfVisit.$gte = new Date(startDate);
-            if (endDate) filter.dateOfVisit.$lte = new Date(endDate);
-        }
 
         const visits = await Visit.find(filter)
             .sort({ createdAt: -1 })
