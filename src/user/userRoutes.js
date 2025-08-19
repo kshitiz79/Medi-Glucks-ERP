@@ -2,8 +2,8 @@
 const express = require('express');
 const router = express.Router();
 // Make sure the path and file name match exactly
-const { getAllUsers, getUserById, updateUser, deleteUser, getUsersByRole } = require('./controller');
-
+const { getAllUsers, getUserById, updateUser, deleteUser, getUsersByRole, updateProfile } = require('./controller');
+const auth = require('../middleware/authMiddleware');
 
 // GET all users
 router.get('/', getAllUsers);
@@ -17,9 +17,10 @@ router.get('/:id', getUserById);
 // UPDATE user by ID
 router.put('/:id', updateUser);
 
+// UPDATE user profile (authenticated user can update their own profile)
+router.patch('/profile', auth, updateProfile);
+
 // DELETE user by ID
 router.delete('/:id', deleteUser);
-
-
 
 module.exports = router;

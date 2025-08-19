@@ -83,6 +83,47 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+/**
+ * Update user profile (authenticated user can update their own profile)
+ * PATCH /api/users/profile
+ */
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, email, phone, address } = req.body;
+    
+    // Only allow updating specific fields
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message || 'Server error' 
+    });
+  }
+};
 
 /**
  * Delete user by ID

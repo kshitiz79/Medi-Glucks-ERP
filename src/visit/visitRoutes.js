@@ -165,6 +165,47 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
+// UPDATE visit (User can edit their own visits, Admin can edit any)
+router.patch('/:id', auth, async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+
+        if (!visit) {
+            return res.status(404).json({
+                success: false,
+                message: 'Visit not found'
+            });
+        }
+
+        // Check if user can edit this visit
+        if (visit.representativeId.toString() !== req.user.id && !['Admin', 'Super Admin'].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. You can only edit your own visits.'
+            });
+        }
+
+        // Update the visit
+        const updatedVisit = await Visit.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+
+        res.json({
+            success: true,
+            message: 'Visit updated successfully',
+            visit: updatedVisit
+        });
+    } catch (error) {
+        console.error('Update visit error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to update visit'
+        });
+    }
+});
+
 // UPDATE visit status (Admin only)
 router.patch('/:id/status', auth, async (req, res) => {
     try {
@@ -212,18 +253,10 @@ router.patch('/:id/status', auth, async (req, res) => {
     }
 });
 
-// DELETE visit (Admin only)
+// DELETE visit (User can delete their own visits, Admin can delete any)
 router.delete('/:id', auth, async (req, res) => {
     try {
-        // Check if user is admin
-        if (!['Admin', 'Super Admin'].includes(req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied. Admin privileges required.'
-            });
-        }
-
-        const visit = await Visit.findByIdAndDelete(req.params.id);
+        const visit = await Visit.findById(req.params.id);
 
         if (!visit) {
             return res.status(404).json({
@@ -231,6 +264,16 @@ router.delete('/:id', auth, async (req, res) => {
                 message: 'Visit not found'
             });
         }
+
+        // Check if user can delete this visit
+        if (visit.representativeId.toString() !== req.user.id && !['Admin', 'Super Admin'].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. You can only delete your own visits.'
+            });
+        }
+
+        await Visit.findByIdAndDelete(req.params.id);
 
         res.json({
             success: true,
