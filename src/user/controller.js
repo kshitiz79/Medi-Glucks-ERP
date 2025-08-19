@@ -1,5 +1,6 @@
 // controllers/userController.js
 const User = require('./User');
+const bcrypt = require('bcryptjs');
 
 /**
  * Get all users
@@ -46,7 +47,6 @@ exports.getUsersByRole = async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 };
-
 
  
 exports.getUserById = async (req, res) => {
@@ -122,6 +122,40 @@ exports.updateProfile = async (req, res) => {
       success: false,
       message: err.message || 'Server error' 
     });
+  }
+};
+
+/**
+ * Admin: Update a user's password
+ * PUT /api/users/:id/password
+ */
+exports.updateUserPassword = async (req, res) => {
+  try {
+    // Only Admins or Super Admins can update others' passwords
+    if (!req.user || !['Admin', 'Super Admin'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const { password } = req.body;
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { password: hashed },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Update user password error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server error' });
   }
 };
 
