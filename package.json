@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed:states": "node scripts/seedStates.js",
     "seed:cities": "node scripts/seedCities.js",
-    "seed:headoffices": "node scripts/seedHeadOffices.js"
+    "seed:headoffices": "node scripts/seedHeadOffices.js",
+    "migrate:locations": "node scripts/migrateLocationData.js"
   },
   "keywords": [],
   "author": "",

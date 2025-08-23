@@ -4,29 +4,60 @@ const jwt = require('jsonwebtoken');
 const User = require('../user/User');
 const router = express.Router();
 const nodemailer = require('nodemailer');
+const { uploadUserDocuments } = require('../middleware/upload');
 
 const HeadOffice = require('./../headoffice/Model');
 
 // REGISTER
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, phone, headOffice } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role,
+      phone,
+      mobileNumber,
+      headOffice,
+      employeeCode,
+      gender,
+      salaryType,
+      salaryAmount,
+      address,
+      dateOfBirth,
+      dateOfJoining,
+      bankDetails,
+      emergencyContact,
+      reference,
+      branch,
+      department,
+      employmentType,
+      state,
+      managers,
+      areaManagers,
+      headOffices
+    } = req.body;
+
+    // Validate required fields
+    if (!name) return res.status(400).json({ msg: 'Name is required' });
+    if (!email) return res.status(400).json({ msg: 'Email is required' });
+    if (!password) return res.status(400).json({ msg: 'Password is required' });
 
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ msg: 'User already exists' });
 
     const validRoles = [
-      'Super Admin', 
-      'Admin', 
-      'Opps Team', 
-      'National Head', 
-      'State Head', 
-      'Zonal Manager', 
-      'Area Manager', 
+      'Super Admin',
+      'Admin',
+      'Opps Team',
+      'National Head',
+      'State Head',
+      'Zonal Manager',
+      'Area Manager',
       'Manager',
       'User'
     ];
-    
+
     if (role && !validRoles.includes(role)) {
       return res.status(400).json({ msg: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
     }
@@ -36,8 +67,25 @@ router.post('/register', async (req, res) => {
       email,
       password: await bcrypt.hash(password, 10),
       role: role || 'User',
-      phone,
-      headOffice,
+      mobileNumber: mobileNumber || phone,
+      headOffice: headOffice || undefined,
+      employeeCode,
+      gender,
+      salaryType,
+      salaryAmount: salaryAmount ? parseFloat(salaryAmount) : undefined,
+      address,
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
+      bankDetails,
+      emergencyContact,
+      reference,
+      branch: branch || undefined,
+      department: department || undefined,
+      employmentType: employmentType || undefined,
+      state: state || undefined,
+      managers,
+      areaManagers,
+      headOffices
     });
     await user.save();
 

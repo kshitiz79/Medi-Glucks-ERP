@@ -1,7 +1,7 @@
 // routes/state.js
 const express = require('express');
 const router = express.Router();
-const State = require('./Model');
+const State = require('./State');
 
 // GET all states
 router.get('/', async (req, res) => {

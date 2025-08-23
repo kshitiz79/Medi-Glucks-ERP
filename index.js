@@ -39,10 +39,7 @@ app.use(cors({
 }));
 
 // --- MongoDB Connection & Index Cleanup ---
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('MongoDB connected successfully');
 
@@ -66,6 +63,7 @@ mongoose.connect(process.env.MONGO_URI, {
     // Then mount routes and start server
     const authRoutes = require('./src/auth/auth');
     const userRoutes = require('./src/user/userRoutes');
+    const masterRoutes = require('./src/user/masterRoutes');
     const pdfRoutes = require('./src/pdf/Route');
     const headOfficeRouter = require('./src/headoffice/Route');
     const stateRouter = require('./src/state/Route');
@@ -82,9 +80,14 @@ mongoose.connect(process.env.MONGO_URI, {
     const ticketRoutes = require('./src/raseticket/Route');
     const notificationRoutes = require('./src/notification/Route');
     const visitRoutes = require('./src/visit/visitRoutes');
+    const salesTargetRoutes = require('./src/salesTarget/Route');
+    const leaveTypeRoutes = require('./src/leaveType/Route');
+    const holidayRoutes = require('./src/holiday/Route');
+    const leaveRoutes = require('./src/leave/Route');
 
     app.use('/api/auth', authRoutes);
     app.use('/api/users', userRoutes);
+    app.use('/api/master', masterRoutes);
     app.use('/api/pdfs', pdfRoutes);
     app.use('/api/headoffices', headOfficeRouter);
     app.use('/api/states', stateRouter);
@@ -101,6 +104,10 @@ mongoose.connect(process.env.MONGO_URI, {
     app.use('/api/tickets', ticketRoutes);
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/visits', visitRoutes);
+    app.use('/api/sales-targets', salesTargetRoutes);
+    app.use('/api/leave-types', leaveTypeRoutes);
+    app.use('/api/holidays', holidayRoutes);
+    app.use('/api/leaves', leaveRoutes);
 
     app.get('/', (req, res) => {
       res.send('Sales Management API is running');

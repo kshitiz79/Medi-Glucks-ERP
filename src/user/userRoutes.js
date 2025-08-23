@@ -2,20 +2,24 @@
 const express = require('express');
 const router = express.Router();
 // Make sure the path and file name match exactly
-const { getAllUsers, getUserById, updateUser, deleteUser, getUsersByRole, updateProfile, updateUserPassword } = require('./controller');
+const { getAllUsers, getUserById, createUser, updateUser, deleteUser, getUsersByRole, updateProfile, updateUserPassword } = require('./controller');
 const auth = require('../middleware/authMiddleware');
+const { uploadUserDocuments } = require('../middleware/upload');
 
 // GET all users
-router.get('/', getAllUsers);
+router.get('/', auth, getAllUsers);
 
 // GET users by role
-router.get('/role/:role', getUsersByRole);
+router.get('/role/:role', auth, getUsersByRole);
 
 // GET one user by ID
-router.get('/:id', getUserById);
+router.get('/:id', auth, getUserById);
 
-// UPDATE user by ID
-router.put('/:id', updateUser);
+// CREATE new user (with file upload support)
+router.post('/', auth, uploadUserDocuments, createUser);
+
+// UPDATE user by ID (with file upload support)
+router.put('/:id', auth, uploadUserDocuments, updateUser);
 
 // UPDATE user profile (authenticated user can update their own profile)
 router.patch('/profile', auth, updateProfile);
@@ -24,6 +28,6 @@ router.patch('/profile', auth, updateProfile);
 router.put('/:id/password', auth, updateUserPassword);
 
 // DELETE user by ID
-router.delete('/:id', deleteUser);
+router.delete('/:id', auth, deleteUser);
 
 module.exports = router;
