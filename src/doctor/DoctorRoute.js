@@ -10,9 +10,16 @@ const HeadOffice = require('../headoffice/Model');
 router.get('/', async (req, res) => {
   try {
     const doctors = await Doctor.find().populate('headOffice');
-    res.json(doctors);
+    res.json({
+      success: true,
+      count: doctors.length,
+      data: doctors
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 });
 

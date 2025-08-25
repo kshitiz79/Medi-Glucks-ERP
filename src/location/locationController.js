@@ -874,7 +874,7 @@ exports.getLocationAnalytics = async (req, res) => {
 };
 
 /**
- * Helper function to calculate location analytics
+ * Helper function to calculate location analytics with enhanced stop point detection
  */
 function calculateLocationAnalytics(locations) {
     if (!locations || locations.length === 0) {
@@ -885,7 +885,8 @@ function calculateLocationAnalytics(locations) {
             maxSpeed: 0,
             timeActive: 0,
             stationaryTime: 0,
-            locationClusters: []
+            locationClusters: [],
+            stopPoints: []
         };
     }
 
@@ -894,6 +895,11 @@ function calculateLocationAnalytics(locations) {
     let totalTime = 0;
     let stationaryTime = 0;
     const speeds = [];
+    const stopPoints = [];
+
+    // Constants for stop point detection
+    const STOP_RADIUS_KM = 0.06; // 60 meters in kilometers
+    const MIN_STOP_DURATION_MINUTES = 10; // 10 minutes minimum
 
     // Calculate distance and speed between consecutive points
     for (let i = 1; i < locations.length; i++) {
@@ -925,22 +931,156 @@ function calculateLocationAnalytics(locations) {
         }
     }
 
+    // Enhanced stop point detection with 60-meter radius and 10-minute duration
+    const detectedStopPoints = detectStopPoints(locations, STOP_RADIUS_KM, MIN_STOP_DURATION_MINUTES);
+    
     const averageSpeed = speeds.length > 0 ? 
         speeds.reduce((sum, speed) => sum + speed, 0) / speeds.length : 0;
 
     return {
         totalPoints: locations.length,
-        totalDistance: Math.round(totalDistance * 100) / 100, // Round to 2 decimal places
+        totalDistance: Math.round(totalDistance * 100) / 100,
         averageSpeed: Math.round(averageSpeed * 100) / 100,
         maxSpeed: Math.round(maxSpeed * 100) / 100,
         timeActive: Math.round((totalTime - stationaryTime) * 100) / 100,
         stationaryTime: Math.round(stationaryTime * 100) / 100,
+        stopPoints: detectedStopPoints,
         timeSpan: {
             start: locations[0]?.timestamp,
             end: locations[locations.length - 1]?.timestamp,
             duration: totalTime
         }
     };
+}
+
+/**
+ * Detect stop points based on 60-meter radius and 10-minute minimum duration
+ */
+function detectStopPoints(locations, radiusKm, minDurationMinutes) {
+    if (!locations || locations.length < 2) return [];
+    
+    const stopPoints = [];
+    let currentCluster = [];
+    
+    // Group consecutive locations within the radius
+    for (let i = 0; i < locations.length; i++) {
+        const currentLoc = locations[i];
+        
+        if (currentCluster.length === 0) {
+            // Start new cluster
+            currentCluster = [currentLoc];
+        } else {
+            // Check if current location is within radius of cluster center
+            const clusterCenter = calculateClusterCenter(currentCluster);
+            const distanceToCenter = calculateDistance(
+                currentLoc.latitude, currentLoc.longitude,
+                clusterCenter.latitude, clusterCenter.longitude
+            );
+            
+            if (distanceToCenter <= radiusKm) {
+                // Add to current cluster
+                currentCluster.push(currentLoc);
+            } else {
+                // Check if current cluster qualifies as a stop point
+                const stopPoint = evaluateClusterAsStopPoint(currentCluster, minDurationMinutes);
+                if (stopPoint) {
+                    stopPoints.push(stopPoint);
+                }
+                
+                // Start new cluster
+                currentCluster = [currentLoc];
+            }
+        }
+    }
+    
+    // Check the final cluster
+    if (currentCluster.length > 0) {
+        const stopPoint = evaluateClusterAsStopPoint(currentCluster, minDurationMinutes);
+        if (stopPoint) {
+            stopPoints.push(stopPoint);
+        }
+    }
+    
+    return stopPoints;
+}
+
+/**
+ * Calculate the center point of a location cluster
+ */
+function calculateClusterCenter(cluster) {
+    if (cluster.length === 0) return null;
+    
+    const sumLat = cluster.reduce((sum, loc) => sum + loc.latitude, 0);
+    const sumLng = cluster.reduce((sum, loc) => sum + loc.longitude, 0);
+    
+    return {
+        latitude: sumLat / cluster.length,
+        longitude: sumLng / cluster.length
+    };
+}
+
+/**
+ * Evaluate if a cluster qualifies as a stop point based on duration
+ */
+function evaluateClusterAsStopPoint(cluster, minDurationMinutes) {
+    if (cluster.length < 2) return null;
+    
+    const startTime = new Date(cluster[0].timestamp);
+    const endTime = new Date(cluster[cluster.length - 1].timestamp);
+    const durationMinutes = (endTime - startTime) / (1000 * 60);
+    
+    if (durationMinutes >= minDurationMinutes) {
+        const center = calculateClusterCenter(cluster);
+        
+        return {
+            id: `stop_${startTime.getTime()}`,
+            center: center,
+            startTime: startTime,
+            endTime: endTime,
+            duration: Math.round(durationMinutes),
+            locationCount: cluster.length,
+            radius: calculateClusterRadius(cluster, center),
+            isActive: isClusterCurrentlyActive(cluster),
+            locations: cluster.map(loc => ({
+                timestamp: loc.timestamp,
+                latitude: loc.latitude,
+                longitude: loc.longitude
+            }))
+        };
+    }
+    
+    return null;
+}
+
+/**
+ * Calculate the maximum radius of a cluster from its center
+ */
+function calculateClusterRadius(cluster, center) {
+    if (!center || cluster.length === 0) return 0;
+    
+    let maxDistance = 0;
+    for (const loc of cluster) {
+        const distance = calculateDistance(
+            loc.latitude, loc.longitude,
+            center.latitude, center.longitude
+        );
+        maxDistance = Math.max(maxDistance, distance);
+    }
+    
+    return Math.round(maxDistance * 1000); // Return in meters
+}
+
+/**
+ * Check if a cluster is currently active (within last 10 minutes)
+ */
+function isClusterCurrentlyActive(cluster) {
+    if (cluster.length === 0) return false;
+    
+    const lastLocationTime = new Date(cluster[cluster.length - 1].timestamp);
+    const now = new Date();
+    const minutesSinceLastLocation = (now - lastLocationTime) / (1000 * 60);
+    
+    return minutesSinceLastLocation <= 10;
 }
 
 /**

@@ -15,13 +15,27 @@ const locationSchema = new mongoose.Schema({
     type: Number, 
     required: true,
     min: -90,
-    max: 90
+    max: 90,
+    validate: {
+      validator: function(value) {
+        // Add basic validation for reasonable coordinates
+        return value !== null && value !== undefined && !isNaN(value);
+      },
+      message: 'Invalid latitude coordinate'
+    }
   },
   longitude: { 
     type: Number, 
     required: true,
     min: -180,
-    max: 180
+    max: 180,
+    validate: {
+      validator: function(value) {
+        // Add basic validation for reasonable coordinates
+        return value !== null && value !== undefined && !isNaN(value);
+      },
+      message: 'Invalid longitude coordinate'
+    }
   },
   deviceId: {
     type: String,
@@ -35,7 +49,14 @@ const locationSchema = new mongoose.Schema({
   // Optional enhanced fields
   accuracy: {
     type: Number,
-    default: null
+    default: null,
+    validate: {
+      validator: function(value) {
+        // Only accept locations with reasonable accuracy (less than 100 meters)
+        return value === null || value === undefined || (value >= 0 && value <= 100);
+      },
+      message: 'Location accuracy must be between 0 and 100 meters'
+    }
   },
   batteryLevel: {
     type: Number,
@@ -48,6 +69,16 @@ const locationSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // Add country/region validation
+  country: {
+    type: String,
+    default: null
+  },
+  // Add flag for suspicious locations
+  isSuspicious: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
@@ -57,6 +88,34 @@ const locationSchema = new mongoose.Schema({
 locationSchema.index({ userId: 1, timestamp: -1 });
 locationSchema.index({ timestamp: -1 });
 locationSchema.index({ userId: 1, createdAt: -1 });
+locationSchema.index({ latitude: 1, longitude: 1 }); // For geospatial queries
+locationSchema.index({ isSuspicious: 1 }); // For filtering suspicious locations
+
+// Pre-save middleware to validate location
+locationSchema.pre('save', function(next) {
+  // Check for common invalid coordinates that might indicate GPS errors
+  const lat = this.latitude;
+  const lon = this.longitude;
+  
+  // Check for null island (0, 0) or other suspicious coordinates
+  if ((lat === 0 && lon === 0) || 
+      (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) {
+    this.isSuspicious = true;
+  }
+  
+  // Add India geofencing (approximate bounds)
+  // India bounds: lat 8.4 to 37.6, lon 68.7 to 97.25
+  const isInIndia = lat >= 8.0 && lat <= 38.0 && lon >= 68.0 && lon <= 98.0;
+  
+  if (!isInIndia) {
+    this.isSuspicious = true;
+    this.country = 'Unknown';
+  } else {
+    this.country = 'India';
+  }
+  
+  next();
+});
 
 // Instance method to calculate distance from another location
 locationSchema.methods.distanceFrom = function(otherLocation) {
@@ -83,7 +142,9 @@ locationSchema.statics.getUserLocationHistory = function(userId, date) {
     timestamp: {
       $gte: startOfDay,
       $lte: endOfDay
-    }
+    },
+    // Filter out suspicious locations by default
+    isSuspicious: { $ne: true }
   };
   
   // Support both userId and old format without userId
@@ -99,8 +160,23 @@ locationSchema.statics.getUserLocationHistory = function(userId, date) {
 
 // Static method to get user's current location
 locationSchema.statics.getUserCurrentLocation = function(userId) {
-  // First try to find by userId
-  return this.findOne({ userId: userId })
+  // First try to find by userId, excluding suspicious locations
+  return this.findOne({ 
+    userId: userId,
+    isSuspicious: { $ne: true }
+  })
+    .sort({ timestamp: -1 })
+    .populate('userId', 'name email employeeCode role');
+};
+
+// New method to get suspicious locations for admin review
+locationSchema.statics.getSuspiciousLocations = function(userId = null) {
+  const query = { isSuspicious: true };
+  if (userId) {
+    query.userId = userId;
+  }
+  
+  return this.find(query)
     .sort({ timestamp: -1 })
     .populate('userId', 'name email employeeCode role');
 };
