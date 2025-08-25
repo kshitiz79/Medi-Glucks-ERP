@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Get notifications for the current user
+// Get all notifications for the current user
 router.get('/', async (req, res) => {
   const { userId } = req.query;
 
@@ -52,6 +52,50 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get only unread notifications for popup
+router.get('/unread', async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    // Find all notifications that the user hasn't read and hasn't permanently dismissed
+    const notifications = await Notification.find({
+      $or: [
+        // Direct notifications to the user that are unread and not permanently dismissed
+        { 
+          'recipients.user': userId, 
+          'recipients.isRead': false,
+          'recipients.permanentlyDismissed': { $ne: true }
+        },
+        // Broadcast notifications that user hasn't interacted with
+        { 
+          isBroadcast: true,
+          recipients: { 
+            $not: { 
+              $elemMatch: { 
+                user: userId,
+                $or: [
+                  { isRead: true },
+                  { permanentlyDismissed: true }
+                ]
+              } 
+            } 
+          }
+        }
+      ],
+    })
+    .populate('sender', 'name email')
+    .sort('-createdAt');
+    
+    res.json(notifications);
+  } catch (err) {
+    console.error('Error fetching unread notifications:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Get unread notification count for the current user
 router.get('/count', async (req, res) => {
@@ -64,13 +108,20 @@ router.get('/count', async (req, res) => {
 
     const notifications = await Notification.find({
       $or: [
+        // Direct notifications to the user that are unread
         { 'recipients.user': userId, 'recipients.isRead': false },
-        { isBroadcast: true, 'recipients.user': { $ne: userId } },
+        // Broadcast notifications the user hasn't interacted with
+        { 
+          isBroadcast: true,
+          recipients: { 
+            $not: { $elemMatch: { user: userId } } 
+          }
+        },
       ],
     });
 
     const count = notifications.reduce((acc, notif) => {
-      if (notif.isBroadcast && !notif.recipients.some(r => r.user.toString() === userId && r.isRead)) {
+      if (notif.isBroadcast && !notif.recipients.some(r => r.user.toString() === userId)) {
         return acc + 1;
       }
       if (!notif.isBroadcast && notif.recipients.some(r => r.user.toString() === userId && !r.isRead)) {
@@ -109,6 +160,7 @@ router.patch('/:id/read', async (req, res) => {
         user: userId,
         isRead: true,
         readAt: new Date(),
+        permanentlyDismissed: false
       });
     } else {
       // Update existing recipient
@@ -131,6 +183,58 @@ router.patch('/:id/read', async (req, res) => {
     res.json(notification);
   } catch (err) {
     console.error('Error marking notification as read:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Permanently dismiss notification (don't show again)
+router.patch('/:id/dismiss', async (req, res) => {
+  const { userId, permanentlyDismissed = true } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    let notification = await Notification.findOne({
+      _id: req.params.id,
+      $or: [{ 'recipients.user': userId }, { isBroadcast: true }],
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    // If broadcast and user not in recipients, add them with permanentlyDismissed flag
+    if (notification.isBroadcast && !notification.recipients.some(r => r.user.toString() === userId)) {
+      notification.recipients.push({
+        user: userId,
+        isRead: true,
+        readAt: new Date(),
+        permanentlyDismissed: permanentlyDismissed
+      });
+    } else {
+      // Update existing recipient
+      notification = await Notification.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          'recipients.user': userId,
+        },
+        {
+          $set: {
+            'recipients.$.isRead': true,
+            'recipients.$.readAt': new Date(),
+            'recipients.$.permanentlyDismissed': permanentlyDismissed
+          },
+        },
+        { new: true }
+      );
+    }
+
+    await notification.save();
+    res.json(notification);
+  } catch (err) {
+    console.error('Error dismissing notification:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -170,6 +274,7 @@ router.delete('/:id', async (req, res) => {
         user: userId,
         isRead: true,
         readAt: new Date(),
+        permanentlyDismissed: true
       });
       await notification.save();
     }
@@ -195,10 +300,19 @@ router.delete('/', async (req, res) => {
       { $pull: { recipients: { user: userId } } }
     );
 
-    // For broadcast notifications, mark as read instead of removing
+    // For broadcast notifications, mark as read and permanently dismissed
     await Notification.updateMany(
       { isBroadcast: true, 'recipients.user': { $ne: userId } },
-      { $push: { recipients: { user: userId, isRead: true, readAt: new Date() } } }
+      { 
+        $push: { 
+          recipients: { 
+            user: userId, 
+            isRead: true, 
+            readAt: new Date(),
+            permanentlyDismissed: true
+          } 
+        } 
+      }
     );
 
     res.json({ message: 'All notifications deleted' });

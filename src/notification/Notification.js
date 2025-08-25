@@ -17,6 +17,7 @@ const notificationSchema = new mongoose.Schema(
         },
         isRead: { type: Boolean, default: false },
         readAt: { type: Date },
+        permanentlyDismissed: { type: Boolean, default: false }, // New field for "don't show again"
       },
     ],
     isBroadcast: { type: Boolean, default: false },
