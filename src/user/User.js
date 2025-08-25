@@ -152,6 +152,32 @@ const userSchema = new mongoose.Schema({
     default: true
   },
 
+  // EMAIL VERIFICATION FIELDS
+  otp: {
+    type: String,
+    default: null
+  },
+  otpExpire: {
+    type: Date,
+    default: null
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false // Will be set to true for admin-created accounts
+  },
+  emailVerifiedAt: {
+    type: Date,
+    default: null
+  },
+  pin: {
+    type: String,
+    default: null
+  },
+  pinExpire: {
+    type: Date,
+    default: null
+  },
+
   // AUDIT FIELDS
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

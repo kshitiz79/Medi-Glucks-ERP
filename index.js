@@ -107,6 +107,7 @@ mongoose.connect(process.env.MONGO_URI)
         const leaveRoutes = require('./src/leave/Route');
         const attendanceRoutes = require('./src/attendance/attendanceRoutes');
         const shiftRoutes = require('./src/shift/shiftRoutes');
+        const versionRoutes = require('./src/version/versionRoutes');
 
         app.use('/api/auth', authRoutes);
         app.use('/api/users', userRoutes);
@@ -133,12 +134,13 @@ mongoose.connect(process.env.MONGO_URI)
         app.use('/api/leaves', leaveRoutes);
         app.use('/api/attendance', attendanceRoutes);
         app.use('/api/shifts', shiftRoutes);
+        app.use('/api/version', versionRoutes);
 
         app.get('/', (req, res) => {
             res.send('Sales Management API is running');
         });
 
-        const PORT = process.env.PORT || 5000;
+        const PORT = process.env.PORT || 5050;
         server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log('Socket.IO server initialized');
