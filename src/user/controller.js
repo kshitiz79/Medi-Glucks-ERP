@@ -626,6 +626,148 @@ exports.deleteUser = async(req, res) => {
 };
 
 /**
+ * Get users by state for State Head
+ * GET /api/users/by-state
+ */
+exports.getUsersByState = async(req, res) => {
+    try {
+        const { search, department, role, page = 1, limit = 50 } = req.query;
+        const currentUser = req.user;
+
+        // Check if the current user is a State Head
+        if (!currentUser || currentUser.role !== 'State Head') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Only State Heads can access this endpoint.'
+            });
+        }
+
+        // Get the current user's state
+        const stateHeadUser = await User.findById(currentUser.id).populate('state');
+        
+        if (!stateHeadUser || !stateHeadUser.state) {
+            return res.status(400).json({
+                success: false,
+                message: 'State Head must be assigned to a state to view users.'
+            });
+        }
+
+        const stateId = stateHeadUser.state._id;
+
+        // First, find all head offices in the State Head's state
+        const HeadOffice = require('../headoffice/Model');
+        const headOfficesInState = await HeadOffice.find({ 
+            state: stateId, 
+            isActive: true 
+        }).select('_id');
+
+        const headOfficeIds = headOfficesInState.map(ho => ho._id);
+
+        // Build query to find users assigned to head offices in this state
+        let query = {
+            isActive: true,
+            $or: [
+                { headOffice: { $in: headOfficeIds } },
+                { headOffices: { $in: headOfficeIds } }
+            ]
+        };
+
+        // Add search filter if provided
+        if (search) {
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { name: { $regex: search, $options: 'i' } },
+                    { employeeCode: { $regex: search, $options: 'i' } },
+                    { email: { $regex: search, $options: 'i' } }
+                ]
+            });
+        }
+
+        // Add department filter if provided
+        if (department) {
+            query.department = department;
+        }
+
+        // Add role filter if provided
+        if (role) {
+            query.role = role;
+        }
+
+        // Calculate pagination
+        const skip = (page - 1) * limit;
+
+        // Execute queries in parallel for better performance
+        const [users, totalCount] = await Promise.all([
+            User.find(query)
+                .populate('department', 'name')
+                .populate('headOffice', 'name state')
+                .populate('headOffices', 'name state')
+                .populate('state', 'name')
+                .populate('branch', 'name')
+                .populate('employmentType', 'name')
+                .select('employeeCode name email role department headOffice headOffices state branch employmentType mobileNumber dateOfJoining salaryAmount isActive createdAt')
+                .sort({ name: 1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+            User.countDocuments(query)
+        ]);
+
+        // Format the response for frontend consumption
+        const formattedUsers = users.map(user => ({
+            id: user._id,
+            employeeCode: user.employeeCode,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            department: user.department?.name || 'Not Assigned',
+            headOffice: user.headOffice?.name || 'Not Assigned',
+            headOffices: user.headOffices?.map(ho => ho.name).join(', ') || 'Not Assigned',
+            state: user.state?.name || stateHeadUser.state.name,
+            branch: user.branch?.name || 'Not Assigned',
+            employmentType: user.employmentType?.name || 'Not Assigned',
+            mobileNumber: user.mobileNumber,
+            dateOfJoining: user.dateOfJoining,
+            salaryAmount: user.salaryAmount,
+            isActive: user.isActive,
+            createdAt: user.createdAt
+        }));
+
+        // Calculate pagination info
+        const totalPages = Math.ceil(totalCount / limit);
+        const hasNext = page < totalPages;
+        const hasPrev = page > 1;
+
+        res.json({
+            success: true,
+            data: {
+                users: formattedUsers,
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages,
+                    totalCount,
+                    limit: parseInt(limit),
+                    hasNext,
+                    hasPrev
+                },
+                state: {
+                    id: stateId,
+                    name: stateHeadUser.state.name
+                },
+                headOfficesCount: headOfficeIds.length
+            },
+            message: `Found ${formattedUsers.length} users in ${stateHeadUser.state.name} state`
+        });
+    } catch (err) {
+        console.error('Get users by state error:', err);
+        res.status(500).json({
+            success: false,
+            message: err.message || 'Server error'
+        });
+    }
+};
+
+/**
  * Get active users for shift assignment
  * GET /api/users/for-shift-assignment
  */

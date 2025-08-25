@@ -4,6 +4,16 @@ const Location = require('./Location');
 const User = require('../user/User');
 const auth = require('../middleware/authMiddleware');
 
+// Import enhanced location controller
+const {
+    getUsersLocationTracker,
+    getUserLocationHistory,
+    getRealTimeLocations,
+    getLocationAnalytics,
+    getStateHeadUsersLocationTracker,
+    getStateHeadCurrentLocations
+} = require('./locationController');
+
 // POST route to save location data - Backward compatible
 router.post('/', async (req, res) => {
   try {
@@ -513,5 +523,27 @@ router.post('/migrate', auth, async (req, res) => {
     });
   }
 });
+
+// ========== Enhanced Admin Location Tracking Routes ==========
+
+// GET route for admin dashboard user tracker with date/24h filtering
+router.get('/admin/users-tracker', auth, getUsersLocationTracker);
+
+// GET route for detailed user location history with analytics
+router.get('/admin/user-history/:userId', auth, getUserLocationHistory);
+
+// GET route for real-time location updates
+router.get('/admin/real-time', auth, getRealTimeLocations);
+
+// GET route for location analytics summary
+router.get('/admin/analytics', auth, getLocationAnalytics);
+
+// ========== State Head Location Tracking Routes ==========
+
+// GET route for State Head to view users location tracker in their state (date-wise 24h)
+router.get('/state-head/users-tracker', auth, getStateHeadUsersLocationTracker);
+
+// GET route for State Head to view current locations of users in their state (Last fetch)
+router.get('/state-head/current-locations', auth, getStateHeadCurrentLocations);
 
 module.exports = router;
