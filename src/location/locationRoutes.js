@@ -11,7 +11,9 @@ const {
     getRealTimeLocations,
     getLocationAnalytics,
     getStateHeadUsersLocationTracker,
-    getStateHeadCurrentLocations
+    getStateHeadCurrentLocations,
+    getUser24HourLocationData,
+    getUserCurrentLocationByStateHead
 } = require('./locationController');
 
 // POST route to save location data - Backward compatible
@@ -545,5 +547,11 @@ router.get('/state-head/users-tracker', auth, getStateHeadUsersLocationTracker);
 
 // GET route for State Head to view current locations of users in their state (Last fetch)
 router.get('/state-head/current-locations', auth, getStateHeadCurrentLocations);
+
+// GET route for State Head to get last 24 hours location data for a specific user
+router.get('/state-head/user-24h-data/:userId', auth, getUser24HourLocationData);
+
+// GET route for State Head to get current location of a specific user
+router.get('/state-head/user-current/:userId', auth, getUserCurrentLocationByStateHead);
 
 module.exports = router;

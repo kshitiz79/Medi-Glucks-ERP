@@ -45,7 +45,7 @@ exports.getUsersLocationTracker = async (req, res) => {
                 const startOfDay = new Date(targetDate);
                 const endOfDay = new Date(targetDate);
                 endOfDay.setHours(23, 59, 59, 999);
-                
+
                 timeRange = {
                     $gte: startOfDay,
                     $lte: endOfDay
@@ -105,15 +105,15 @@ exports.getUsersLocationTracker = async (req, res) => {
             users.map(async (user) => {
                 const userId = user._id.toString();
                 const userLocations = locationsByUser[userId] || [];
-                
+
                 // Get current location (most recent)
                 const currentLocation = userLocations[0] || null;
-                
+
                 // Calculate analytics for the time period
                 const analytics = calculateLocationAnalytics(userLocations);
-                
+
                 // Determine online status (last 5 minutes)
-                const isOnline = currentLocation && 
+                const isOnline = currentLocation &&
                     (new Date() - new Date(currentLocation.timestamp)) < 300000;
 
                 return {
@@ -215,7 +215,7 @@ exports.getUserLocationHistory = async (req, res) => {
 
         // Build time range
         let timeRange = {};
-        
+
         if (startDate && endDate) {
             // Custom date range
             timeRange = {
@@ -225,14 +225,14 @@ exports.getUserLocationHistory = async (req, res) => {
         } else if (date) {
             // Specific date with hours filter
             const targetDate = new Date(date);
-            
+
             if (hours === '24') {
                 // Full day
                 const startOfDay = new Date(targetDate);
                 startOfDay.setHours(0, 0, 0, 0);
                 const endOfDay = new Date(targetDate);
                 endOfDay.setHours(23, 59, 59, 999);
-                
+
                 timeRange = {
                     $gte: startOfDay,
                     $lte: endOfDay
@@ -330,21 +330,21 @@ exports.getRealTimeLocations = async (req, res) => {
         }
 
         const { minutes = 5 } = req.query;
-        
+
         // Get locations from last N minutes
         const timeAgo = new Date(Date.now() - parseInt(minutes) * 60 * 1000);
-        
+
         const recentLocations = await Location.find({
             timestamp: { $gte: timeAgo }
         })
-        .populate('userId', 'name email employeeCode role')
-        .sort({ timestamp: -1 });
+            .populate('userId', 'name email employeeCode role')
+            .sort({ timestamp: -1 });
 
         // Group by user to get latest location per user
         const latestByUser = {};
         recentLocations.forEach(loc => {
             const userId = loc.userId._id.toString();
-            if (!latestByUser[userId] || 
+            if (!latestByUser[userId] ||
                 new Date(loc.timestamp) > new Date(latestByUser[userId].timestamp)) {
                 latestByUser[userId] = loc;
             }
@@ -400,7 +400,7 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
 
         // Get State Head's state information
         let stateId = req.user.state;
-        
+
         // For Admin/Super Admin, allow state parameter
         if (['Admin', 'Super Admin'].includes(req.user.role) && req.query.state) {
             stateId = req.query.state;
@@ -429,7 +429,7 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
                 const startOfDay = new Date(targetDate);
                 const endOfDay = new Date(targetDate);
                 endOfDay.setHours(23, 59, 59, 999);
-                
+
                 timeRange = {
                     $gte: startOfDay,
                     $lte: endOfDay
@@ -449,7 +449,7 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
 
         // Build user filter query for users in the State Head's state
         let userQuery = { state: stateId };
-        
+
         if (search) {
             const searchRegex = new RegExp(search, 'i');
             userQuery.$or = [
@@ -490,15 +490,15 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
             users.map(async (user) => {
                 const userId = user._id.toString();
                 const userLocations = locationsByUser[userId] || [];
-                
+
                 // Get current location (most recent)
                 const currentLocation = userLocations[0] || null;
-                
+
                 // Calculate analytics for the time period
                 const analytics = calculateLocationAnalytics(userLocations);
-                
+
                 // Determine online status (last 5 minutes)
-                const isOnline = currentLocation && 
+                const isOnline = currentLocation &&
                     (new Date() - new Date(currentLocation.timestamp)) < 300000;
 
                 return {
@@ -602,7 +602,7 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
 
         // Get State Head's state information
         let stateId = req.user.state;
-        
+
         // For Admin/Super Admin, allow state parameter
         if (['Admin', 'Super Admin'].includes(req.user.role) && req.query.state) {
             stateId = req.query.state;
@@ -617,7 +617,7 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
 
         // Build user filter query for users in the State Head's state
         let userQuery = { state: stateId, isActive: true };
-        
+
         if (search) {
             const searchRegex = new RegExp(search, 'i');
             userQuery.$or = [
@@ -646,11 +646,11 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
                     .limit(1);
 
                 // Determine online status (last 5 minutes)
-                const isOnline = currentLocation && 
+                const isOnline = currentLocation &&
                     (new Date() - new Date(currentLocation.timestamp)) < 300000;
 
                 // Calculate time since last seen
-                const lastSeenMinutes = currentLocation ? 
+                const lastSeenMinutes = currentLocation ?
                     Math.floor((new Date() - new Date(currentLocation.timestamp)) / (1000 * 60)) : null;
 
                 return {
@@ -676,7 +676,7 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
                     isOnline,
                     lastSeen: currentLocation ? currentLocation.timestamp : null,
                     lastSeenMinutes,
-                    locationStatus: currentLocation ? 
+                    locationStatus: currentLocation ?
                         (isOnline ? 'online' : `${lastSeenMinutes}m ago`) : 'no data'
                 };
             })
@@ -755,9 +755,9 @@ exports.getLocationAnalytics = async (req, res) => {
         }
 
         const { date, period = 'today' } = req.query;
-        
+
         let timeRange = {};
-        
+
         switch (period) {
             case 'today':
                 const today = date ? new Date(date) : new Date();
@@ -766,7 +766,7 @@ exports.getLocationAnalytics = async (req, res) => {
                 endToday.setHours(23, 59, 59, 999);
                 timeRange = { $gte: today, $lte: endToday };
                 break;
-                
+
             case 'yesterday':
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
@@ -775,13 +775,13 @@ exports.getLocationAnalytics = async (req, res) => {
                 endYesterday.setHours(23, 59, 59, 999);
                 timeRange = { $gte: yesterday, $lte: endYesterday };
                 break;
-                
+
             case 'week':
                 const weekAgo = new Date();
                 weekAgo.setDate(weekAgo.getDate() - 7);
                 timeRange = { $gte: weekAgo };
                 break;
-                
+
             case 'month':
                 const monthAgo = new Date();
                 monthAgo.setMonth(monthAgo.getMonth() - 1);
@@ -792,7 +792,7 @@ exports.getLocationAnalytics = async (req, res) => {
         // Get location statistics
         const totalLocations = await Location.countDocuments({ timestamp: timeRange });
         const uniqueUsers = await Location.distinct('userId', { timestamp: timeRange });
-        
+
         // Get hourly distribution
         const hourlyStats = await Location.aggregate([
             { $match: { timestamp: timeRange } },
@@ -874,6 +874,339 @@ exports.getLocationAnalytics = async (req, res) => {
 };
 
 /**
+ * Get last 24 hours location data for a specific user (State Head access)
+ * GET /api/locations/state-head/user-24h-data/:userId
+ */
+exports.getUser24HourLocationData = async (req, res) => {
+    try {
+        // Check if user is State Head or Admin
+        if (!['State Head', 'Admin', 'Super Admin'].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. State Head privileges required.'
+            });
+        }
+
+        const { userId } = req.params;
+        const { date } = req.query;
+
+        // Get the target user information
+        const targetUser = await User.findById(userId)
+            .populate('state', 'name')
+            .populate('headOffice', 'name')
+            .select('name email employeeCode role state headOffice isActive');
+
+        if (!targetUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // For State Head, check if the target user belongs to their state
+        if (req.user.role === 'State Head') {
+            // Get State Head's state information
+            const stateHeadUser = await User.findById(req.user.id).populate('state');
+
+            let hasAccess = false;
+
+            // Check if target user is directly assigned to the same state
+            if (stateHeadUser.state && targetUser.state &&
+                stateHeadUser.state._id.toString() === targetUser.state._id.toString()) {
+                hasAccess = true;
+            }
+
+            // Check if target user's head office is in the same state
+            if (!hasAccess && stateHeadUser.state && targetUser.headOffice) {
+                const HeadOffice = require('../headoffice/Model');
+                const headOffice = await HeadOffice.findById(targetUser.headOffice._id).populate('state');
+                if (headOffice && headOffice.state &&
+                    stateHeadUser.state._id.toString() === headOffice.state._id.toString()) {
+                    hasAccess = true;
+                }
+            }
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Access denied. You can only view users from your state.',
+                    debug: {
+                        stateHeadState: stateHeadUser.state?.name || 'Not assigned',
+                        targetUserState: targetUser.state?.name || 'Not assigned',
+                        targetUserHeadOffice: targetUser.headOffice?.name || 'Not assigned'
+                    }
+                });
+            }
+        }
+
+        // Build time range for last 24 hours
+        let timeRange = {};
+        if (date) {
+            // Specific date - get 24 hours for that date
+            const targetDate = new Date(date);
+            targetDate.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(targetDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            timeRange = {
+                $gte: targetDate,
+                $lte: endOfDay
+            };
+        } else {
+            // Default: last 24 hours from now
+            timeRange = {
+                $gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+            };
+        }
+
+        // Get location data for the user in the last 24 hours
+        const locations = await Location.find({
+            userId: userId,
+            timestamp: timeRange,
+            isSuspicious: { $ne: true } // Exclude suspicious locations
+        }).sort({ timestamp: 1 });
+
+        // Calculate analytics
+        const analytics = calculateLocationAnalytics(locations);
+
+        // Group locations by hour for better visualization
+        const locationsByHour = {};
+        locations.forEach(loc => {
+            const hour = new Date(loc.timestamp).getHours();
+            if (!locationsByHour[hour]) {
+                locationsByHour[hour] = [];
+            }
+            locationsByHour[hour].push(loc);
+        });
+
+        // Calculate distance traveled
+        let totalDistance = 0;
+        for (let i = 1; i < locations.length; i++) {
+            totalDistance += locations[i].distanceFrom(locations[i - 1]);
+        }
+
+        // Get current location (most recent)
+        const currentLocation = locations[locations.length - 1] || null;
+        const isOnline = currentLocation &&
+            (new Date() - new Date(currentLocation.timestamp)) < 300000; // 5 minutes
+
+        res.status(200).json({
+            success: true,
+            data: {
+                user: {
+                    _id: targetUser._id,
+                    name: targetUser.name,
+                    email: targetUser.email,
+                    employeeCode: targetUser.employeeCode,
+                    role: targetUser.role,
+                    state: targetUser.state,
+                    headOffice: targetUser.headOffice,
+                    isActive: targetUser.isActive
+                },
+                timeRange: {
+                    from: timeRange.$gte,
+                    to: timeRange.$lte || new Date(),
+                    period: date ? `24 hours for ${date}` : 'Last 24 hours'
+                },
+                locations,
+                locationsByHour,
+                analytics,
+                summary: {
+                    totalPoints: locations.length,
+                    totalDistance: Math.round(totalDistance * 100) / 100,
+                    firstLocation: locations[0] || null,
+                    lastLocation: currentLocation,
+                    isOnline,
+                    lastSeen: currentLocation ? currentLocation.timestamp : null,
+                    averageAccuracy: locations.length > 0 ?
+                        locations.reduce((sum, loc) => sum + (loc.accuracy || 0), 0) / locations.length : 0
+                }
+            },
+            message: `Found ${locations.length} location points for ${targetUser.name} in the specified time range`
+        });
+
+    } catch (error) {
+        console.error('Get user 24h location data error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch user 24-hour location data',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get current location of a specific user (State Head access)
+ * GET /api/locations/state-head/user-current/:userId
+ */
+exports.getUserCurrentLocationByStateHead = async (req, res) => {
+    try {
+        // Check if user is State Head or Admin
+        if (!['State Head', 'Admin', 'Super Admin'].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. State Head privileges required.'
+            });
+        }
+
+        const { userId } = req.params;
+
+        // Get the target user information
+        const targetUser = await User.findById(userId)
+            .populate('state', 'name code')
+            .populate('headOffice', 'name')
+            .select('name email employeeCode role state headOffice isActive');
+
+        if (!targetUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // For State Head, check if the target user belongs to their state
+        if (req.user.role === 'State Head') {
+            // Get State Head's state information
+            const stateHeadUser = await User.findById(req.user.id).populate('state');
+
+            let hasAccess = false;
+
+            // Check if target user is directly assigned to the same state
+            if (stateHeadUser.state && targetUser.state &&
+                stateHeadUser.state._id.toString() === targetUser.state._id.toString()) {
+                hasAccess = true;
+            }
+
+            // Check if target user's head office is in the same state
+            if (!hasAccess && stateHeadUser.state && targetUser.headOffice) {
+                const HeadOffice = require('../headoffice/Model');
+                const headOffice = await HeadOffice.findById(targetUser.headOffice._id).populate('state');
+                if (headOffice && headOffice.state &&
+                    stateHeadUser.state._id.toString() === headOffice.state._id.toString()) {
+                    hasAccess = true;
+                }
+            }
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Access denied. You can only view users from your state.',
+                    debug: {
+                        stateHeadState: stateHeadUser.state?.name || 'Not assigned',
+                        targetUserState: targetUser.state?.name || 'Not assigned',
+                        targetUserHeadOffice: targetUser.headOffice?.name || 'Not assigned'
+                    }
+                });
+            }
+        }
+
+        // Get the most recent location for this user
+        const currentLocation = await Location.findOne({
+            userId: userId,
+            isSuspicious: { $ne: true } // Exclude suspicious locations
+        })
+            .sort({ timestamp: -1 })
+            .limit(1);
+
+        if (!currentLocation) {
+            return res.status(404).json({
+                success: false,
+                message: `No location data found for user ${targetUser.name}`,
+                data: {
+                    user: {
+                        _id: targetUser._id,
+                        name: targetUser.name,
+                        email: targetUser.email,
+                        employeeCode: targetUser.employeeCode,
+                        role: targetUser.role,
+                        state: targetUser.state,
+                        headOffice: targetUser.headOffice,
+                        isActive: targetUser.isActive
+                    },
+                    currentLocation: null,
+                    locationStatus: 'No location data available'
+                }
+            });
+        }
+
+        // Determine online status and time since last seen
+        const isOnline = (new Date() - new Date(currentLocation.timestamp)) < 300000; // 5 minutes
+        const lastSeenMinutes = Math.floor((new Date() - new Date(currentLocation.timestamp)) / (1000 * 60));
+
+        // Get location history for context (last 5 locations)
+        const recentLocations = await Location.find({
+            userId: userId,
+            isSuspicious: { $ne: true }
+        })
+            .sort({ timestamp: -1 })
+            .limit(5);
+
+        // Calculate movement pattern (if user has been moving)
+        let movementStatus = 'stationary';
+        if (recentLocations.length >= 2) {
+            const distance = recentLocations[0].distanceFrom(recentLocations[1]);
+            if (distance > 0.1) { // More than 100 meters
+                movementStatus = 'moving';
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                user: {
+                    _id: targetUser._id,
+                    name: targetUser.name,
+                    email: targetUser.email,
+                    employeeCode: targetUser.employeeCode,
+                    role: targetUser.role,
+                    state: targetUser.state,
+                    headOffice: targetUser.headOffice,
+                    isActive: targetUser.isActive
+                },
+                currentLocation: {
+                    _id: currentLocation._id,
+                    latitude: currentLocation.latitude,
+                    longitude: currentLocation.longitude,
+                    timestamp: currentLocation.timestamp,
+                    accuracy: currentLocation.accuracy,
+                    batteryLevel: currentLocation.batteryLevel,
+                    networkType: currentLocation.networkType,
+                    deviceId: currentLocation.deviceId
+                },
+                locationStatus: {
+                    isOnline,
+                    lastSeenMinutes,
+                    lastSeenText: isOnline ? 'Online' : `${lastSeenMinutes} minutes ago`,
+                    movementStatus,
+                    accuracy: currentLocation.accuracy ? `${currentLocation.accuracy}m` : 'Unknown'
+                },
+                recentLocations: recentLocations.map(loc => ({
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                    timestamp: loc.timestamp,
+                    accuracy: loc.accuracy
+                })),
+                hierarchy: {
+                    user: targetUser.name,
+                    headOffice: targetUser.headOffice?.name || 'Not assigned',
+                    state: targetUser.state?.name || 'Not assigned',
+                    stateHead: req.user.name // Current state head viewing the data
+                }
+            },
+            message: `Current location found for ${targetUser.name}. Status: ${isOnline ? 'Online' : `Last seen ${lastSeenMinutes} minutes ago`}`
+        });
+
+    } catch (error) {
+        console.error('Get user current location by state head error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch user current location',
+            error: error.message
+        });
+    }
+};
+
+/**
  * Helper function to calculate location analytics with enhanced stop point detection
  */
 function calculateLocationAnalytics(locations) {
@@ -905,25 +1238,25 @@ function calculateLocationAnalytics(locations) {
     for (let i = 1; i < locations.length; i++) {
         const prevLoc = locations[i - 1];
         const currentLoc = locations[i];
-        
+
         // Calculate distance using Haversine formula
         const distance = calculateDistance(
             prevLoc.latitude, prevLoc.longitude,
             currentLoc.latitude, currentLoc.longitude
         );
-        
+
         totalDistance += distance;
-        
+
         // Calculate time difference in hours
         const timeDiff = (new Date(currentLoc.timestamp) - new Date(prevLoc.timestamp)) / (1000 * 60 * 60);
         totalTime += timeDiff;
-        
+
         // Calculate speed (km/h)
         if (timeDiff > 0) {
             const speed = distance / timeDiff;
             speeds.push(speed);
             maxSpeed = Math.max(maxSpeed, speed);
-            
+
             // Consider stationary if speed < 1 km/h
             if (speed < 1) {
                 stationaryTime += timeDiff;
@@ -933,8 +1266,8 @@ function calculateLocationAnalytics(locations) {
 
     // Enhanced stop point detection with 60-meter radius and 10-minute duration
     const detectedStopPoints = detectStopPoints(locations, STOP_RADIUS_KM, MIN_STOP_DURATION_MINUTES);
-    
-    const averageSpeed = speeds.length > 0 ? 
+
+    const averageSpeed = speeds.length > 0 ?
         speeds.reduce((sum, speed) => sum + speed, 0) / speeds.length : 0;
 
     return {
@@ -958,14 +1291,14 @@ function calculateLocationAnalytics(locations) {
  */
 function detectStopPoints(locations, radiusKm, minDurationMinutes) {
     if (!locations || locations.length < 2) return [];
-    
+
     const stopPoints = [];
     let currentCluster = [];
-    
+
     // Group consecutive locations within the radius
     for (let i = 0; i < locations.length; i++) {
         const currentLoc = locations[i];
-        
+
         if (currentCluster.length === 0) {
             // Start new cluster
             currentCluster = [currentLoc];
@@ -976,7 +1309,7 @@ function detectStopPoints(locations, radiusKm, minDurationMinutes) {
                 currentLoc.latitude, currentLoc.longitude,
                 clusterCenter.latitude, clusterCenter.longitude
             );
-            
+
             if (distanceToCenter <= radiusKm) {
                 // Add to current cluster
                 currentCluster.push(currentLoc);
@@ -986,13 +1319,13 @@ function detectStopPoints(locations, radiusKm, minDurationMinutes) {
                 if (stopPoint) {
                     stopPoints.push(stopPoint);
                 }
-                
+
                 // Start new cluster
                 currentCluster = [currentLoc];
             }
         }
     }
-    
+
     // Check the final cluster
     if (currentCluster.length > 0) {
         const stopPoint = evaluateClusterAsStopPoint(currentCluster, minDurationMinutes);
@@ -1000,7 +1333,7 @@ function detectStopPoints(locations, radiusKm, minDurationMinutes) {
             stopPoints.push(stopPoint);
         }
     }
-    
+
     return stopPoints;
 }
 
@@ -1009,10 +1342,10 @@ function detectStopPoints(locations, radiusKm, minDurationMinutes) {
  */
 function calculateClusterCenter(cluster) {
     if (cluster.length === 0) return null;
-    
+
     const sumLat = cluster.reduce((sum, loc) => sum + loc.latitude, 0);
     const sumLng = cluster.reduce((sum, loc) => sum + loc.longitude, 0);
-    
+
     return {
         latitude: sumLat / cluster.length,
         longitude: sumLng / cluster.length
@@ -1024,14 +1357,14 @@ function calculateClusterCenter(cluster) {
  */
 function evaluateClusterAsStopPoint(cluster, minDurationMinutes) {
     if (cluster.length < 2) return null;
-    
+
     const startTime = new Date(cluster[0].timestamp);
     const endTime = new Date(cluster[cluster.length - 1].timestamp);
     const durationMinutes = (endTime - startTime) / (1000 * 60);
-    
+
     if (durationMinutes >= minDurationMinutes) {
         const center = calculateClusterCenter(cluster);
-        
+
         return {
             id: `stop_${startTime.getTime()}`,
             center: center,
@@ -1048,7 +1381,7 @@ function evaluateClusterAsStopPoint(cluster, minDurationMinutes) {
             }))
         };
     }
-    
+
     return null;
 }
 
@@ -1057,7 +1390,7 @@ function evaluateClusterAsStopPoint(cluster, minDurationMinutes) {
  */
 function calculateClusterRadius(cluster, center) {
     if (!center || cluster.length === 0) return 0;
-    
+
     let maxDistance = 0;
     for (const loc of cluster) {
         const distance = calculateDistance(
@@ -1066,7 +1399,7 @@ function calculateClusterRadius(cluster, center) {
         );
         maxDistance = Math.max(maxDistance, distance);
     }
-    
+
     return Math.round(maxDistance * 1000); // Return in meters
 }
 
@@ -1075,11 +1408,11 @@ function calculateClusterRadius(cluster, center) {
  */
 function isClusterCurrentlyActive(cluster) {
     if (cluster.length === 0) return false;
-    
+
     const lastLocationTime = new Date(cluster[cluster.length - 1].timestamp);
     const now = new Date();
     const minutesSinceLastLocation = (now - lastLocationTime) / (1000 * 60);
-    
+
     return minutesSinceLastLocation <= 10;
 }
 
@@ -1090,10 +1423,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in kilometers
 }
 
@@ -1103,5 +1436,7 @@ module.exports = {
     getRealTimeLocations: exports.getRealTimeLocations,
     getLocationAnalytics: exports.getLocationAnalytics,
     getStateHeadUsersLocationTracker: exports.getStateHeadUsersLocationTracker,
-    getStateHeadCurrentLocations: exports.getStateHeadCurrentLocations
+    getStateHeadCurrentLocations: exports.getStateHeadCurrentLocations,
+    getUser24HourLocationData: exports.getUser24HourLocationData,
+    getUserCurrentLocationByStateHead: exports.getUserCurrentLocationByStateHead
 };

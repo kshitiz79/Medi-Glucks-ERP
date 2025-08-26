@@ -1,6 +1,7 @@
 // routes/masterRoutes.js
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/authMiddleware');
 const {
   // Branch controllers
   getAllBranches,
@@ -30,26 +31,26 @@ const { getUserHistory } = require('./controller');
 // ============ BRANCH ROUTES ============
 router.get('/branches', getAllBranches);
 router.get('/branches/:id', getBranchById);
-router.post('/branches', createBranch);
-router.put('/branches/:id', updateBranch);
-router.delete('/branches/:id', deleteBranch);
+router.post('/branches', auth, createBranch);
+router.put('/branches/:id', auth, updateBranch);
+router.delete('/branches/:id', auth, deleteBranch);
 
 // ============ DEPARTMENT ROUTES ============
 router.get('/departments', getAllDepartments);
-router.post('/departments', createDepartment);
-router.put('/departments/:id', updateDepartment);
-router.delete('/departments/:id', deleteDepartment);
+router.post('/departments', auth, createDepartment);
+router.put('/departments/:id', auth, updateDepartment);
+router.delete('/departments/:id', auth, deleteDepartment);
 
 // ============ EMPLOYMENT TYPE ROUTES ============
 router.get('/employment-types', getAllEmploymentTypes);
-router.post('/employment-types', createEmploymentType);
-router.put('/employment-types/:id', updateEmploymentType);
-router.delete('/employment-types/:id', deleteEmploymentType);
+router.post('/employment-types', auth, createEmploymentType);
+router.put('/employment-types/:id', auth, updateEmploymentType);
+router.delete('/employment-types/:id', auth, deleteEmploymentType);
 
 // Note: Head Office and State routes are handled by separate route files:
 // - Head Office routes: /api/headoffices (Backend/src/headoffice/Route.js)
 // - State routes: /api/states (Backend/src/state/Route.js)
 
-router.get('/users/:userId/history', getUserHistory);
+router.get('/users/:userId/history', auth, getUserHistory);
 
 module.exports = router;
