@@ -4,12 +4,11 @@ const User = require('../user/User');
 const Shift = require('../shift/Shift');
 const mongoose = require('mongoose');
 
-// Punch In
-const punchIn = async(req, res) => {
+// Enhanced Punch In/Out Toggle with Multiple Sessions Support
+const togglePunch = async(req, res) => {
     try {
         const { userId, location, shiftId } = req.body;
 
-        // Use userId from request body or token
         const attendanceUserId = userId || (req.user && req.user.id);
 
         if (!attendanceUserId) {
@@ -22,50 +21,167 @@ const punchIn = async(req, res) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Check if already punched in today
+        // Find or create today's attendance record
         let attendance = await Attendance.findOne({
             userId: attendanceUserId,
             date: today
         });
 
-        if (attendance && attendance.punchIn && !attendance.punchOut) {
-            return res.status(400).json({
-                success: false,
-                message: 'Already punched in today. Please punch out first.'
-            });
-        }
-
-        // If punched out, don't allow punch in again for the same day
-        if (attendance && attendance.punchOut) {
-            return res.status(400).json({
-                success: false,
-                message: 'Already completed attendance for today'
-            });
-        }
-
-        // Create new attendance record
         if (!attendance) {
             attendance = new Attendance({
                 userId: attendanceUserId,
                 date: today,
-                shiftId: shiftId || null
+                shiftId: shiftId || null,
+                punchSessions: [],
+                currentSession: -1
             });
         }
 
-        attendance.punchIn = new Date();
-        attendance.punchOut = null; // Ensure punchOut is null
-        attendance.status = 'present';
+        let action = '';
+        let message = '';
+
+        // Check current status
+        if (attendance.currentSession >= 0) {
+            // User is currently punched in - PUNCH OUT
+            const activeSession = attendance.punchSessions[attendance.currentSession];
+            activeSession.punchOut = new Date();
+            
+            if (location) {
+                activeSession.punchOutLocation = {
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    address: location.address
+                };
+            }
+
+            attendance.currentSession = -1; // No active session
+            action = 'punch-out';
+            message = 'Punched out successfully';
+
+        } else {
+            // User is not punched in - PUNCH IN (new session)
+            const newSession = {
+                punchIn: new Date(),
+                punchOut: null
+            };
+
+            if (location) {
+                newSession.punchInLocation = {
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    address: location.address
+                };
+            }
+
+            attendance.punchSessions.push(newSession);
+            attendance.currentSession = attendance.punchSessions.length - 1;
+
+            // Set shift info for first punch in of the day
+            if (attendance.punchSessions.length === 1 && shiftId) {
+                const shift = await Shift.findById(shiftId);
+                if (shift) {
+                    const expectedPunchInTime = new Date(today);
+                    expectedPunchInTime.setHours(
+                        shift.startTime.getHours(),
+                        shift.startTime.getMinutes(),
+                        0, 0
+                    );
+                    attendance.expectedPunchIn = expectedPunchInTime;
+                }
+            }
+
+            action = 'punch-in';
+            message = `Punched in successfully (Session ${attendance.punchSessions.length})`;
+        }
+
+        await attendance.save();
+
+        // Get io instance and emit update
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`user-${attendanceUserId}`).emit('attendance-update', {
+                type: action,
+                data: attendance.getSummary()
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: message,
+            action: action,
+            data: attendance.getSummary()
+        });
+
+    } catch (error) {
+        console.error('Toggle punch error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to toggle punch',
+            error: error.message
+        });
+    }
+};
+
+// Legacy Punch In (for backward compatibility)
+const punchIn = async(req, res) => {
+    try {
+        const { userId, location, shiftId } = req.body;
+
+        const attendanceUserId = userId || (req.user && req.user.id);
+
+        if (!attendanceUserId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let attendance = await Attendance.findOne({
+            userId: attendanceUserId,
+            date: today
+        });
+
+        // Check if already punched in
+        if (attendance && attendance.currentSession >= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Already punched in. Please punch out first.'
+            });
+        }
+
+        // Create new attendance record if doesn't exist
+        if (!attendance) {
+            attendance = new Attendance({
+                userId: attendanceUserId,
+                date: today,
+                shiftId: shiftId || null,
+                punchSessions: [],
+                currentSession: -1
+            });
+        }
+
+        // Add new punch in session
+        const newSession = {
+            punchIn: new Date(),
+            punchOut: null
+        };
 
         if (location) {
-            attendance.punchInLocation = {
+            newSession.punchInLocation = {
                 latitude: location.latitude,
                 longitude: location.longitude,
                 address: location.address
             };
         }
 
-        // Check if late (if shift is provided)
-        if (shiftId) {
+        attendance.punchSessions.push(newSession);
+        attendance.currentSession = attendance.punchSessions.length - 1;
+
+        // Set shift info for first punch in of the day
+        if (attendance.punchSessions.length === 1 && shiftId) {
             const shift = await Shift.findById(shiftId);
             if (shift) {
                 const expectedPunchInTime = new Date(today);
@@ -91,7 +207,7 @@ const punchIn = async(req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Punched in successfully',
+            message: `Punched in successfully (Session ${attendance.punchSessions.length})`,
             data: attendance.getSummary()
         });
 
@@ -105,7 +221,7 @@ const punchIn = async(req, res) => {
     }
 };
 
-// Punch Out
+// Legacy Punch Out (for backward compatibility)
 const punchOut = async(req, res) => {
     try {
         const { userId, location } = req.body;
@@ -124,27 +240,29 @@ const punchOut = async(req, res) => {
 
         const attendance = await Attendance.findOne({
             userId: attendanceUserId,
-            date: today,
-            punchIn: { $exists: true },
-            punchOut: { $exists: false }
+            date: today
         });
 
-        if (!attendance) {
+        if (!attendance || attendance.currentSession < 0) {
             return res.status(400).json({
                 success: false,
                 message: 'No active punch-in found for today. Please punch in first.'
             });
         }
 
-        attendance.punchOut = new Date();
+        // Punch out from current active session
+        const activeSession = attendance.punchSessions[attendance.currentSession];
+        activeSession.punchOut = new Date();
 
         if (location) {
-            attendance.punchOutLocation = {
+            activeSession.punchOutLocation = {
                 latitude: location.latitude,
                 longitude: location.longitude,
                 address: location.address
             };
         }
+
+        attendance.currentSession = -1; // No active session
 
         await attendance.save();
 
@@ -168,241 +286,6 @@ const punchOut = async(req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to punch out',
-            error: error.message
-        });
-    }
-};
-
-// Toggle Punch (Smart Punch In/Out)
-const togglePunch = async(req, res) => {
-    try {
-        const { userId, location, shiftId } = req.body;
-
-        const attendanceUserId = userId || (req.user && req.user.id);
-
-        if (!attendanceUserId) {
-            return res.status(400).json({
-                success: false,
-                message: 'User ID is required'
-            });
-        }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Find today's attendance record
-        let attendance = await Attendance.findOne({
-            userId: attendanceUserId,
-            date: today
-        });
-
-        // Determine action based on current state
-        if (!attendance || !attendance.punchIn) {
-            // No punch in yet - PUNCH IN
-            if (!attendance) {
-                attendance = new Attendance({
-                    userId: attendanceUserId,
-                    date: today,
-                    shiftId: shiftId || null
-                });
-            }
-
-            attendance.punchIn = new Date();
-            attendance.punchOut = null;
-            attendance.status = 'present';
-
-            if (location) {
-                attendance.punchInLocation = {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                    address: location.address
-                };
-            }
-
-            await attendance.save();
-
-            // Get io instance and emit update
-            const io = req.app.get('io');
-            if (io) {
-                io.to(`user-${attendanceUserId}`).emit('attendance-update', {
-                    type: 'punch-in',
-                    data: attendance.getSummary()
-                });
-            }
-
-            return res.status(200).json({
-                success: true,
-                message: 'Punched in successfully',
-                action: 'punch-in',
-                data: attendance.getSummary()
-            });
-
-        } else if (attendance.punchIn && !attendance.punchOut) {
-            // Already punched in - PUNCH OUT
-            attendance.punchOut = new Date();
-
-            if (location) {
-                attendance.punchOutLocation = {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                    address: location.address
-                };
-            }
-
-            await attendance.save();
-
-            // Get io instance and emit update
-            const io = req.app.get('io');
-            if (io) {
-                io.to(`user-${attendanceUserId}`).emit('attendance-update', {
-                    type: 'punch-out',
-                    data: attendance.getSummary()
-                });
-            }
-
-            return res.status(200).json({
-                success: true,
-                message: 'Punched out successfully',
-                action: 'punch-out',
-                data: attendance.getSummary()
-            });
-
-        } else {
-            // Already completed for the day
-            return res.status(400).json({
-                success: false,
-                message: 'Attendance already completed for today'
-            });
-        }
-
-    } catch (error) {
-        console.error('Toggle punch error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to toggle punch',
-            error: error.message
-        });
-    }
-};
-
-// Start Break
-const startBreak = async(req, res) => {
-    try {
-        const { userId, reason } = req.body;
-
-        const attendanceUserId = userId || (req.user && req.user.id);
-
-        if (!attendanceUserId) {
-            return res.status(400).json({
-                success: false,
-                message: 'User ID is required'
-            });
-        }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const attendance = await Attendance.findOne({
-            userId: attendanceUserId,
-            date: today,
-            punchIn: { $exists: true },
-            punchOut: { $exists: false }
-        });
-
-        if (!attendance) {
-            return res.status(400).json({
-                success: false,
-                message: 'No active attendance found for today'
-            });
-        }
-
-        // Check if already on break
-        const activeBreak = attendance.breaks.find(b => b.breakStart && !b.breakEnd);
-        if (activeBreak) {
-            return res.status(400).json({
-                success: false,
-                message: 'Already on break'
-            });
-        }
-
-        attendance.breaks.push({
-            breakStart: new Date(),
-            reason: reason || 'Break'
-        });
-
-        await attendance.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'Break started successfully',
-            data: attendance.getSummary()
-        });
-
-    } catch (error) {
-        console.error('Start break error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to start break',
-            error: error.message
-        });
-    }
-};
-
-// End Break
-const endBreak = async(req, res) => {
-    try {
-        const { userId } = req.body;
-
-        const attendanceUserId = userId || (req.user && req.user.id);
-
-        if (!attendanceUserId) {
-            return res.status(400).json({
-                success: false,
-                message: 'User ID is required'
-            });
-        }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const attendance = await Attendance.findOne({
-            userId: attendanceUserId,
-            date: today,
-            punchIn: { $exists: true },
-            punchOut: { $exists: false }
-        });
-
-        if (!attendance) {
-            return res.status(400).json({
-                success: false,
-                message: 'No active attendance found for today'
-            });
-        }
-
-        // Find active break
-        const activeBreak = attendance.breaks.find(b => b.breakStart && !b.breakEnd);
-        if (!activeBreak) {
-            return res.status(400).json({
-                success: false,
-                message: 'No active break found'
-            });
-        }
-
-        activeBreak.breakEnd = new Date();
-
-        await attendance.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'Break ended successfully',
-            data: attendance.getSummary()
-        });
-
-    } catch (error) {
-        console.error('End break error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to end break',
             error: error.message
         });
     }
@@ -436,10 +319,18 @@ const getTodayAttendance = async(req, res) => {
                 data: {
                     date: today,
                     status: 'not_started',
-                    punchIn: null,
-                    punchOut: null,
+                    punchSessions: [],
+                    currentSession: -1,
+                    activeSession: null,
+                    firstPunchIn: null,
+                    lastPunchOut: null,
                     workingHours: '0h 0m',
-                    totalWorkingMinutes: 0
+                    totalWorkingMinutes: 0,
+                    totalBreakMinutes: 0,
+                    autoBreaks: [],
+                    // Legacy fields
+                    punchIn: null,
+                    punchOut: null
                 }
             });
         }
@@ -641,10 +532,14 @@ const getAllAttendanceToday = async(req, res) => {
                 department: user.department || 'N/A',
                 attendance: attendance ? attendance.getSummary() : {
                     status: 'absent',
-                    punchIn: null,
-                    punchOut: null,
+                    punchSessions: [],
+                    currentSession: -1,
+                    firstPunchIn: null,
+                    lastPunchOut: null,
                     workingHours: '0h 0m',
-                    totalWorkingMinutes: 0
+                    totalWorkingMinutes: 0,
+                    totalBreakMinutes: 0,
+                    autoBreaks: []
                 }
             };
         });
@@ -652,9 +547,9 @@ const getAllAttendanceToday = async(req, res) => {
         // Calculate summary statistics
         const summary = {
             totalEmployees: allUsers.length,
-            presentToday: attendanceRecords.filter(a => a.status === 'present').length,
+            presentToday: attendanceRecords.filter(a => a.status === 'present' || a.status === 'punched_in').length,
             absentToday: allUsers.length - attendanceRecords.length,
-            onBreak: attendanceRecords.filter(a => a.breaks.some(b => b.breakStart && !b.breakEnd)).length,
+            currentlyPunchedIn: attendanceRecords.filter(a => a.currentSession >= 0).length,
             totalHoursToday: attendanceRecords.reduce((sum, a) => sum + (a.totalWorkingMinutes / 60), 0)
         };
 
@@ -676,12 +571,30 @@ const getAllAttendanceToday = async(req, res) => {
     }
 };
 
+// Remove legacy break functions since breaks are now auto-calculated
+// But keep them for backward compatibility (they will do nothing)
+const startBreak = async(req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Breaks are now automatically calculated between punch sessions',
+        data: null
+    });
+};
+
+const endBreak = async(req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Breaks are now automatically calculated between punch sessions',
+        data: null
+    });
+};
+
 module.exports = {
     punchIn,
     punchOut,
     togglePunch,
-    startBreak,
-    endBreak,
+    startBreak, // Legacy - does nothing
+    endBreak,   // Legacy - does nothing
     getTodayAttendance,
     getWeeklyAttendance,
     getMonthlyAttendance,

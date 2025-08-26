@@ -17,29 +17,51 @@ const attendanceSchema = new mongoose.Schema({
         }
     },
 
-    // Punch times
-    punchIn: {
-        type: Date,
-        required: false
-    },
-    punchOut: {
-        type: Date,
-        required: false
+    // Multiple punch sessions in a day
+    punchSessions: [{
+        punchIn: {
+            type: Date,
+            required: true
+        },
+        punchOut: {
+            type: Date,
+            required: false
+        },
+        punchInLocation: {
+            latitude: { type: Number },
+            longitude: { type: Number },
+            address: { type: String }
+        },
+        punchOutLocation: {
+            latitude: { type: Number },
+            longitude: { type: Number },
+            address: { type: String }
+        }
+    }],
+
+    // Current active session (for quick access)
+    currentSession: {
+        type: Number,
+        default: -1 // -1 means no active session
     },
 
-    // Break times
-    breaks: [{
+    // Auto-calculated break periods (time between punch out and next punch in)
+    autoBreaks: [{
         breakStart: {
             type: Date,
             required: true
         },
         breakEnd: {
             type: Date,
-            required: false
+            required: true
         },
-        reason: {
-            type: String,
-            default: 'Break'
+        duration: {
+            type: Number, // in minutes
+            required: true
+        },
+        isAutoCalculated: {
+            type: Boolean,
+            default: true
         }
     }],
 
@@ -56,7 +78,7 @@ const attendanceSchema = new mongoose.Schema({
     // Attendance status
     status: {
         type: String,
-        enum: ['present', 'absent', 'half_day', 'late', 'on_leave'],
+        enum: ['present', 'absent', 'half_day', 'late', 'on_leave', 'punched_in', 'punched_out'],
         default: 'absent'
     },
 
@@ -70,16 +92,16 @@ const attendanceSchema = new mongoose.Schema({
         default: 0
     },
 
-    // Location data (optional)
-    punchInLocation: {
-        latitude: { type: Number },
-        longitude: { type: Number },
-        address: { type: String }
+    // First punch in time (for late calculation)
+    firstPunchIn: {
+        type: Date,
+        required: false
     },
-    punchOutLocation: {
-        latitude: { type: Number },
-        longitude: { type: Number },
-        address: { type: String }
+
+    // Last punch out time
+    lastPunchOut: {
+        type: Date,
+        required: false
     },
 
     // Shift information
@@ -147,49 +169,79 @@ attendanceSchema.index({ date: 1 });
 attendanceSchema.index({ status: 1 });
 attendanceSchema.index({ userId: 1, date: -1 });
 
-// Pre-save middleware to calculate working hours
+// Pre-save middleware to calculate working hours and auto breaks
 attendanceSchema.pre('save', function(next) {
-    if (this.punchIn && this.punchOut) {
-        // Calculate total working time
-        let totalMinutes = (this.punchOut - this.punchIn) / (1000 * 60);
+    // Calculate total working minutes from all sessions
+    let totalWorkingMinutes = 0;
+    let totalBreakMinutes = 0;
 
-        // Subtract break time
-        if (this.breaks && this.breaks.length > 0) {
-            this.totalBreakMinutes = this.breaks.reduce((total, breakItem) => {
-                if (breakItem.breakStart && breakItem.breakEnd) {
-                    return total + ((breakItem.breakEnd - breakItem.breakStart) / (1000 * 60));
+    if (this.punchSessions && this.punchSessions.length > 0) {
+        // Calculate working time from completed sessions
+        this.punchSessions.forEach(session => {
+            if (session.punchIn && session.punchOut) {
+                const sessionMinutes = (session.punchOut - session.punchIn) / (1000 * 60);
+                totalWorkingMinutes += sessionMinutes;
+            }
+        });
+
+        // Calculate auto breaks between sessions
+        this.autoBreaks = [];
+        for (let i = 0; i < this.punchSessions.length - 1; i++) {
+            const currentSession = this.punchSessions[i];
+            const nextSession = this.punchSessions[i + 1];
+            
+            if (currentSession.punchOut && nextSession.punchIn) {
+                const breakDuration = (nextSession.punchIn - currentSession.punchOut) / (1000 * 60);
+                if (breakDuration > 0) {
+                    this.autoBreaks.push({
+                        breakStart: currentSession.punchOut,
+                        breakEnd: nextSession.punchIn,
+                        duration: breakDuration,
+                        isAutoCalculated: true
+                    });
+                    totalBreakMinutes += breakDuration;
                 }
-                return total;
-            }, 0);
-
-            totalMinutes -= this.totalBreakMinutes;
+            }
         }
 
-        this.totalWorkingMinutes = Math.max(0, totalMinutes);
+        // Set first punch in and last punch out
+        this.firstPunchIn = this.punchSessions[0].punchIn;
+        const lastSession = this.punchSessions[this.punchSessions.length - 1];
+        if (lastSession.punchOut) {
+            this.lastPunchOut = lastSession.punchOut;
+        }
+    }
 
-        // Determine status based on working hours
+    this.totalWorkingMinutes = Math.max(0, totalWorkingMinutes);
+    this.totalBreakMinutes = totalBreakMinutes;
+
+    // Determine status based on working hours and current state
+    if (this.currentSession >= 0) {
+        this.status = 'punched_in';
+    } else if (this.punchSessions.length > 0 && this.lastPunchOut) {
         if (this.totalWorkingMinutes >= 480) { // 8 hours
             this.status = 'present';
         } else if (this.totalWorkingMinutes >= 240) { // 4 hours
             this.status = 'half_day';
         } else if (this.totalWorkingMinutes > 0) {
             this.status = 'present'; // Partial day
+        } else {
+            this.status = 'punched_out';
         }
+    } else if (this.punchSessions.length > 0) {
+        this.status = 'punched_in';
+    }
 
-        // Calculate overtime (assuming 8 hour standard work day)
-        this.overtimeMinutes = Math.max(0, this.totalWorkingMinutes - 480);
+    // Calculate overtime (assuming 8 hour standard work day)
+    this.overtimeMinutes = Math.max(0, this.totalWorkingMinutes - 480);
 
-        // Check if late (assuming 9:00 AM standard start time)
-        if (this.punchIn && this.expectedPunchIn) {
-            const lateBy = (this.punchIn - this.expectedPunchIn) / (1000 * 60);
-            if (lateBy > 15) { // More than 15 minutes late
-                this.isLate = true;
-                this.lateByMinutes = lateBy;
-            }
+    // Check if late (assuming 9:00 AM standard start time)
+    if (this.firstPunchIn && this.expectedPunchIn) {
+        const lateBy = (this.firstPunchIn - this.expectedPunchIn) / (1000 * 60);
+        if (lateBy > 15) { // More than 15 minutes late
+            this.isLate = true;
+            this.lateByMinutes = lateBy;
         }
-    } else if (this.punchIn && !this.punchOut) {
-        // Still working
-        this.status = 'present';
     }
 
     next();
@@ -198,22 +250,43 @@ attendanceSchema.pre('save', function(next) {
 // Instance method to format working hours
 attendanceSchema.methods.getFormattedWorkingHours = function() {
     const hours = Math.floor(this.totalWorkingMinutes / 60);
-    const minutes = this.totalWorkingMinutes % 60;
+    const minutes = Math.round(this.totalWorkingMinutes % 60);
     return `${hours}h ${minutes}m`;
+};
+
+// Instance method to get current punch status
+attendanceSchema.methods.getCurrentPunchStatus = function() {
+    if (this.currentSession >= 0) {
+        return 'punched_in';
+    } else if (this.punchSessions.length > 0) {
+        return 'punched_out';
+    }
+    return 'not_started';
 };
 
 // Instance method to get attendance summary
 attendanceSchema.methods.getSummary = function() {
+    const currentStatus = this.getCurrentPunchStatus();
+    const activeSession = this.currentSession >= 0 ? this.punchSessions[this.currentSession] : null;
+    
     return {
         date: this.date,
-        punchIn: this.punchIn,
-        punchOut: this.punchOut,
+        status: currentStatus,
+        punchSessions: this.punchSessions,
+        currentSession: this.currentSession,
+        activeSession: activeSession,
+        firstPunchIn: this.firstPunchIn,
+        lastPunchOut: this.lastPunchOut,
         workingHours: this.getFormattedWorkingHours(),
-        status: this.status,
+        totalWorkingMinutes: this.totalWorkingMinutes,
+        totalBreakMinutes: this.totalBreakMinutes,
+        autoBreaks: this.autoBreaks,
         isLate: this.isLate,
         lateByMinutes: this.lateByMinutes,
         overtimeMinutes: this.overtimeMinutes,
-        totalBreakMinutes: this.totalBreakMinutes
+        // Legacy fields for backward compatibility
+        punchIn: this.firstPunchIn,
+        punchOut: this.lastPunchOut
     };
 };
 

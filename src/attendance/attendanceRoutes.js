@@ -17,12 +17,14 @@ const {
 // Middleware for authentication (optional, depends on your auth setup)
 // const { authenticate } = require('../middleware/auth');
 
-// User attendance routes
+// Primary attendance routes (recommended)
+router.post('/toggle-punch', togglePunch); // Smart punch in/out with multiple sessions
+
+// Legacy routes (for backward compatibility)
 router.post('/punch-in', punchIn);
 router.post('/punch-out', punchOut);
-router.post('/toggle-punch', togglePunch);
-router.post('/start-break', startBreak);
-router.post('/end-break', endBreak);
+router.post('/start-break', startBreak); // Now deprecated - breaks are auto-calculated
+router.post('/end-break', endBreak);     // Now deprecated - breaks are auto-calculated
 
 // Get attendance data
 router.get('/today/:userId?', getTodayAttendance);
