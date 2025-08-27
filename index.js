@@ -108,6 +108,7 @@ mongoose.connect(process.env.MONGO_URI)
         const attendanceRoutes = require('./src/attendance/attendanceRoutes');
         const shiftRoutes = require('./src/shift/shiftRoutes');
         const versionRoutes = require('./src/version/versionRoutes');
+        const payrollRoutes = require('./src/payroll/payrollRoutes');
 
         app.use('/api/auth', authRoutes);
         app.use('/api/users', userRoutes);
@@ -135,6 +136,7 @@ mongoose.connect(process.env.MONGO_URI)
         app.use('/api/attendance', attendanceRoutes);
         app.use('/api/shifts', shiftRoutes);
         app.use('/api/version', versionRoutes);
+        app.use('/api/payroll', payrollRoutes);
 
         app.get('/', (req, res) => {
             res.send('Sales Management API is running');
