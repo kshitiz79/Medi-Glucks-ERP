@@ -16,9 +16,9 @@ router.get('/', async (req, res) => {
       data: doctors
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -56,7 +56,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // Verify headOffice exists
     const headOfficeExists = await HeadOffice.findById(user.headOffice);
-    if (!	headOfficeExists) {
+    if (!headOfficeExists) {
       return res.status(400).json({ message: `Head Office with ID ${user.headOffice} does not exist` });
     }
 
