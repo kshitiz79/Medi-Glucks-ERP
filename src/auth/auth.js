@@ -114,13 +114,24 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate('headOffice headOffices');
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    // Handle multiple head offices - return as comma-separated string if multiple exist
+    let headOfficeResponse = user.headOffice;
+    if (user.headOffices && user.headOffices.length > 0) {
+      if (user.headOffices.length === 1) {
+        headOfficeResponse = user.headOffices[0]._id || user.headOffices[0];
+      } else {
+        // Multiple head offices - return as comma-separated string
+        headOfficeResponse = user.headOffices.map(ho => ho._id || ho).join(',');
+      }
+    }
 
     res.json({
       token,
@@ -131,7 +142,7 @@ router.post('/login', async (req, res) => {
         role: user.role,
         emailVerified: user.emailVerified,
         phone: user.phone,
-        headOffice: user.headOffice,
+        headOffice: headOfficeResponse,
       },
     });
   } catch (err) {
@@ -518,7 +529,7 @@ router.post('/email-login', async (req, res) => {
       msg: 'Invalid email format' 
     });
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email }).populate('headOffice headOffices');
     if (!user) return res.status(404).json({ 
       success: false, 
       msg: 'User not found' 
@@ -552,6 +563,17 @@ router.post('/email-login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // Handle multiple head offices - return as comma-separated string if multiple exist
+    let headOfficeResponse = user.headOffice;
+    if (user.headOffices && user.headOffices.length > 0) {
+      if (user.headOffices.length === 1) {
+        headOfficeResponse = user.headOffices[0]._id || user.headOffices[0];
+      } else {
+        // Multiple head offices - return as comma-separated string
+        headOfficeResponse = user.headOffices.map(ho => ho._id || ho).join(',');
+      }
+    }
+
     console.log(`🚀 Email login successful for ${email}`);
 
     res.json({
@@ -564,7 +586,7 @@ router.post('/email-login', async (req, res) => {
         email: user.email,
         role: user.role,
         emailVerified: user.emailVerified,
-        headOffice: user.headOffice,
+        headOffice: headOfficeResponse,
         employeeCode: user.employeeCode
       },
     });
