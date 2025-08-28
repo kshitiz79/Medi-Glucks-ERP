@@ -816,6 +816,45 @@ exports.getUsersByState = async(req, res) => {
 };
 
 /**
+ * Get current user's assigned head offices
+ * GET /api/users/my-head-offices
+ */
+exports.getMyHeadOffices = async(req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .populate('headOffice', 'name code')
+            .populate('headOffices', 'name code');
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Return all assigned head offices as an array
+        let headOffices = [];
+        
+        if (user.headOffices && user.headOffices.length > 0) {
+            headOffices = user.headOffices;
+        } else if (user.headOffice) {
+            headOffices = [user.headOffice];
+        }
+
+        res.json({
+            success: true,
+            data: headOffices
+        });
+    } catch (err) {
+        console.error('Get my head offices error:', err);
+        res.status(500).json({
+            success: false,
+            message: err.message || 'Server error'
+        });
+    }
+};
+
+/**
  * Get active users for shift assignment
  * GET /api/users/for-shift-assignment
  */

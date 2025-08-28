@@ -24,6 +24,57 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET doctors for current user's head offices (using token) - MUST BE BEFORE /:id
+router.get('/my-doctors', authMiddleware, async (req, res) => {
+  try {
+    // Get user from token
+    const user = await User.findById(req.user.id)
+      .populate('headOffice', '_id name code')
+      .populate('headOffices', '_id name code');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get all user's head office IDs
+    let headOfficeIds = [];
+    
+    if (user.headOffices && user.headOffices.length > 0) {
+      headOfficeIds = user.headOffices.map(office => office._id);
+    } else if (user.headOffice) {
+      headOfficeIds = [user.headOffice._id];
+    }
+
+    if (headOfficeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No head office assigned to your account. Please contact an administrator.'
+      });
+    }
+
+    // Find all doctors assigned to user's head offices
+    const doctors = await Doctor.find({ 
+      headOffice: { $in: headOfficeIds } 
+    }).populate('headOffice', 'name code');
+
+    res.json({
+      success: true,
+      count: doctors.length,
+      data: doctors,
+      userHeadOffices: user.headOffices || [user.headOffice]
+    });
+  } catch (error) {
+    console.error('Get my doctors error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+});
+
 // GET doctor by ID
 router.get('/:id', async (req, res) => {
   try {

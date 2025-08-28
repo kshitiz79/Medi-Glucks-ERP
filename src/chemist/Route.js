@@ -15,7 +15,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in meters
 };
@@ -65,7 +65,7 @@ router.post('/', async (req, res) => {
         Data: []
       });
     }
-    
+
     if (!officeExists) {
       return res.status(400).json({
         success: "false",
@@ -82,7 +82,7 @@ router.post('/', async (req, res) => {
       emailId,
       drugLicenseNumber,
       gstNo,
-      address,
+      address: address || 'Address not provided', // Provide default value if empty
       latitude,
       longitude,
       yearsInBusiness,
@@ -91,6 +91,7 @@ router.post('/', async (req, res) => {
     });
 
     await chemist.save();
+    console.log('Chemist created successfully:', chemist._id); // Debug log
     res.status(201).json({
       success: "true",
       message: "Chemist added successfully",
@@ -120,6 +121,61 @@ router.get('/', async (req, res) => {
       success: "false",
       message: error.message,
       Data: []
+    });
+  }
+});
+
+// GET chemists for current user's head offices (using token) - MUST BE BEFORE /:id
+router.get('/my-chemists', require('../middleware/authMiddleware'), async (req, res) => {
+  try {
+    const User = require('../user/User');
+
+    // Get user from token
+    const user = await User.findById(req.user.id)
+      .populate('headOffice', '_id name code')
+      .populate('headOffices', '_id name code');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get all user's head office IDs
+    let headOfficeIds = [];
+
+    if (user.headOffices && user.headOffices.length > 0) {
+      headOfficeIds = user.headOffices.map(office => office._id);
+    } else if (user.headOffice) {
+      headOfficeIds = [user.headOffice._id];
+    }
+
+    if (headOfficeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No head office assigned to your account. Please contact an administrator.'
+      });
+    }
+
+    // Find all chemists assigned to user's head offices
+    const chemists = await Chemist.find({
+      headOffice: { $in: headOfficeIds }
+    }).populate('headOffice', 'name code').sort({ createdAt: -1 }); // Sort by newest first
+
+    console.log(`Found ${chemists.length} chemists for user ${req.user.id}`); // Debug log
+
+    res.json({
+      success: true,
+      count: chemists.length,
+      data: chemists,
+      userHeadOffices: user.headOffices || [user.headOffice]
+    });
+  } catch (error) {
+    console.error('Get my chemists error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
     });
   }
 });
@@ -304,12 +360,12 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       visit.chemist.longitude
     );
 
-    
+
     if (distance > 200) {
       return res.status(200).json({
         success: false,
         message: `You are ${Math.round(distance)} meters away from the chemist. Please be within 200 meters to confirm.`,
-        Data: []  
+        Data: []
       });
     }
 
@@ -328,7 +384,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
     res.status(400).json({
       success: false,
       message: error.message,
-      Data: [] 
+      Data: []
     });
   }
 });
@@ -372,7 +428,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching chemists. Please try again later.',
-     
+
     });
   }
 });

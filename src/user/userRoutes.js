@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 // Make sure the path and file name match exactly
-const { getAllUsers, getUserById, createUser, updateUser, deleteUser, getUsersByRole, updateProfile, updateUserPassword, getUsersForShiftAssignment, getUsersByState } = require('./controller');
+const { getAllUsers, getUserById, createUser, updateUser, deleteUser, getUsersByRole, updateProfile, updateUserPassword, getUsersForShiftAssignment, getUsersByState, getMyHeadOffices } = require('./controller');
 const auth = require('../middleware/authMiddleware');
 const { uploadUserDocuments } = require('../middleware/upload');
 
@@ -11,6 +11,9 @@ router.get('/', auth, getAllUsers);
 
 // GET users by state for State Head
 router.get('/by-state', auth, getUsersByState);
+
+// GET current user's assigned head offices
+router.get('/my-head-offices', auth, getMyHeadOffices);
 
 // GET active users for shift assignment
 router.get('/for-shift-assignment', auth, getUsersForShiftAssignment);
