@@ -40,7 +40,13 @@ router.post('/', async (req, res) => {
       headOffice,
     } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(headOffice)) {
+    // Extract headOffice ID if object is sent
+    let headOfficeId = headOffice;
+    if (typeof headOffice === 'object' && headOffice._id) {
+      headOfficeId = headOffice._id;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(headOfficeId)) {
       return res.status(400).json({
         success: "false",
         message: 'Invalid Head Office ID',
@@ -48,7 +54,18 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const officeExists = await HeadOffice.findById(headOffice);
+    // Validate and find head office
+    let officeExists;
+    try {
+      officeExists = await HeadOffice.findById(headOfficeId);
+    } catch (error) {
+      return res.status(400).json({
+        success: "false",
+        message: 'Invalid Head Office ID format',
+        Data: []
+      });
+    }
+    
     if (!officeExists) {
       return res.status(400).json({
         success: "false",
@@ -70,7 +87,7 @@ router.post('/', async (req, res) => {
       longitude,
       yearsInBusiness,
       annualTurnover: annualTurnover || [], // Default to empty array if not provided
-      headOffice,
+      headOffice: headOfficeId,
     });
 
     await chemist.save();

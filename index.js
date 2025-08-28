@@ -61,7 +61,7 @@ app.use(cors({
 
 // --- MongoDB Connection & Index Cleanup ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(async() => {
+    .then(async () => {
         console.log('MongoDB connected successfully');
 
         // Drop old unique index on registration_number (if present)
@@ -109,6 +109,7 @@ mongoose.connect(process.env.MONGO_URI)
         const shiftRoutes = require('./src/shift/shiftRoutes');
         const versionRoutes = require('./src/version/versionRoutes');
         const payrollRoutes = require('./src/payroll/payrollRoutes');
+        const cleanupRoutes = require('./src/admin/cleanupRoutes');
 
         app.use('/api/auth', authRoutes);
         app.use('/api/users', userRoutes);
@@ -137,6 +138,7 @@ mongoose.connect(process.env.MONGO_URI)
         app.use('/api/shifts', shiftRoutes);
         app.use('/api/version', versionRoutes);
         app.use('/api/payroll', payrollRoutes);
+        app.use('/api/admin/cleanup', cleanupRoutes);
 
         app.get('/', (req, res) => {
             res.send('Sales Management API is running');

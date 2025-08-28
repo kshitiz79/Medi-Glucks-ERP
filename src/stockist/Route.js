@@ -50,11 +50,17 @@ router.post('/', async (req, res) => {
       headOffice,
     } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(headOffice)) {
+    // Extract headOffice ID if object is sent
+    let headOfficeId = headOffice;
+    if (typeof headOffice === 'object' && headOffice._id) {
+      headOfficeId = headOffice._id;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(headOfficeId)) {
       return res.status(400).json({ message: 'Invalid Head Office ID' });
     }
 
-    const officeExists = await HeadOffice.findById(headOffice);
+    const officeExists = await HeadOffice.findById(headOfficeId);
     if (!officeExists) {
       return res.status(400).json({ message: 'Head Office does not exist' });
     }
@@ -104,7 +110,7 @@ router.post('/', async (req, res) => {
       coldStorageAvailable,
       numberOfSalesRepresentatives,
       bankDetails,
-      headOffice,
+      headOffice: headOfficeId,
     });
 
     await stockist.save();

@@ -28,6 +28,7 @@ exports.getAllUsers = async(req, res) => {
             .populate('department', 'name code')
             .populate('employmentType', 'name code')
             .populate('headOffice', 'name code')
+            .populate('headOffices', 'name code')
             .populate('manager', 'name email role')
             .populate('managers', 'name email role')
             .populate('areaManagers', 'name email role')
@@ -62,6 +63,7 @@ exports.getUsersByRole = async(req, res) => {
             .populate('department', 'name code')
             .populate('employmentType', 'name code')
             .populate('headOffice', 'name code')
+            .populate('headOffices', 'name code')
             .populate('manager', 'name email role')
             .populate('managers', 'name email role')
             .populate('areaManagers', 'name email role')
@@ -93,6 +95,7 @@ exports.getUserById = async(req, res) => {
             .populate('department', 'name code')
             .populate('employmentType', 'name code')
             .populate('headOffice', 'name code')
+            .populate('headOffices', 'name code')
             .populate('manager', 'name email role')
             .populate('managers', 'name email role')
             .populate('areaManagers', 'name email role')
@@ -175,6 +178,34 @@ exports.createUser = async(req, res) => {
             userData.reference = JSON.parse(userData.reference);
         }
 
+        // Handle ObjectId fields - extract _id if object is sent
+        const objectIdFields = ['branch', 'department', 'employmentType', 'headOffice', 'state'];
+        objectIdFields.forEach(field => {
+            if (userData[field] && typeof userData[field] === 'object' && userData[field]._id) {
+                userData[field] = userData[field]._id;
+            }
+        });
+
+        // Handle array ObjectId fields
+        const arrayObjectIdFields = ['headOffices', 'managers', 'areaManagers'];
+        arrayObjectIdFields.forEach(field => {
+            if (userData[field] && Array.isArray(userData[field])) {
+                userData[field] = userData[field]
+                    .map(item => {
+                        if (typeof item === 'object' && item._id) {
+                            return item._id;
+                        }
+                        return item;
+                    })
+                    .filter(id => id && id !== '');
+            }
+        });
+
+        // Auto-set headOffice from headOffices array if provided
+        if (userData.headOffices && Array.isArray(userData.headOffices) && userData.headOffices.length > 0) {
+            userData.headOffice = userData.headOffices[0];
+        }
+
         // Add legal documents URLs
         if (Object.keys(legalDocuments).length > 0) {
             userData.legalDocuments = legalDocuments;
@@ -242,6 +273,9 @@ exports.updateUser = async(req, res) => {
         objectIdFields.forEach(field => {
             if (updateData[field] === '') {
                 updateData[field] = undefined;
+            } else if (updateData[field] && typeof updateData[field] === 'object' && updateData[field]._id) {
+                // If frontend sends object with _id, extract just the _id
+                updateData[field] = updateData[field]._id;
             }
         });
 
@@ -250,12 +284,25 @@ exports.updateUser = async(req, res) => {
         arrayObjectIdFields.forEach(field => {
             if (updateData[field]) {
                 if (Array.isArray(updateData[field])) {
-                    updateData[field] = updateData[field].filter(id => id && id !== '');
+                    // Extract _id from objects if needed and filter out empty values
+                    updateData[field] = updateData[field]
+                        .map(item => {
+                            if (typeof item === 'object' && item._id) {
+                                return item._id;
+                            }
+                            return item;
+                        })
+                        .filter(id => id && id !== '');
                 } else if (updateData[field] === '') {
                     updateData[field] = undefined;
                 }
             }
         });
+
+        // Auto-set headOffice from headOffices array if provided
+        if (updateData.headOffices && Array.isArray(updateData.headOffices) && updateData.headOffices.length > 0) {
+            updateData.headOffice = updateData.headOffices[0];
+        }
 
         if (req.files) {
             const currentUser = await User.findById(req.params.id);
@@ -306,6 +353,7 @@ exports.updateUser = async(req, res) => {
             .populate('department', 'name code')
             .populate('employmentType', 'name code')
             .populate('headOffice', 'name code')
+            .populate('headOffices', 'name code')
             .populate('manager', 'name email role')
             .populate('managers', 'name email role')
             .populate('areaManagers', 'name email role')
@@ -804,8 +852,9 @@ exports.getUsersForShiftAssignment = async(req, res) => {
         const users = await User.find(query)
             .populate('department', 'name')
             .populate('headOffice', 'name')
+            .populate('headOffices', 'name')
             .populate('state', 'name')
-            .select('employeeCode name email role department headOffice state mobileNumber dateOfJoining isActive')
+            .select('employeeCode name email role department headOffice headOffices state mobileNumber dateOfJoining isActive')
             .sort({ name: 1 }); // Sort by name alphabetically
 
         // Format the response for frontend consumption

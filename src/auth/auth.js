@@ -94,6 +94,11 @@ router.post('/register', async (req, res) => {
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '60h' });
 
+    // Populate headOffice and headOffices before sending response
+    const populatedUser = await User.findById(user._id)
+      .populate('headOffice', 'name code')
+      .populate('headOffices', 'name code');
+
     res.json({
       token,
       user: {
@@ -101,7 +106,9 @@ router.post('/register', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        headOffice: user.headOffice,
+        headOffices: populatedUser.headOffices && populatedUser.headOffices.length > 0 
+          ? populatedUser.headOffices 
+          : (populatedUser.headOffice ? [populatedUser.headOffice] : []),
       },
     });
   } catch (err) {
@@ -114,24 +121,15 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email }).populate('headOffice headOffices');
+    const user = await User.findOne({ email })
+      .populate('headOffice', 'name code')
+      .populate('headOffices', 'name code');
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-    // Handle multiple head offices - return as comma-separated string if multiple exist
-    let headOfficeResponse = user.headOffice;
-    if (user.headOffices && user.headOffices.length > 0) {
-      if (user.headOffices.length === 1) {
-        headOfficeResponse = user.headOffices[0]._id || user.headOffices[0];
-      } else {
-        // Multiple head offices - return as comma-separated string
-        headOfficeResponse = user.headOffices.map(ho => ho._id || ho).join(',');
-      }
-    }
 
     res.json({
       token,
@@ -142,7 +140,9 @@ router.post('/login', async (req, res) => {
         role: user.role,
         emailVerified: user.emailVerified,
         phone: user.phone,
-        headOffice: headOfficeResponse,
+        headOffices: user.headOffices && user.headOffices.length > 0 
+          ? user.headOffices 
+          : (user.headOffice ? [user.headOffice] : []),
       },
     });
   } catch (err) {
@@ -311,31 +311,31 @@ router.post('/check-email-registered', async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) return res.status(400).json({ 
-      success: false, 
-      msg: 'Email is required' 
+    if (!email) return res.status(400).json({
+      success: false,
+      msg: 'Email is required'
     });
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json({ 
-      success: false, 
-      msg: 'Invalid email format' 
+    if (!emailRegex.test(email)) return res.status(400).json({
+      success: false,
+      msg: 'Invalid email format'
     });
 
     // Check if user exists
     const user = await User.findOne({ email }).select('email name role emailVerified');
-    
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        msg: 'Email not registered in the system' 
+      return res.status(404).json({
+        success: false,
+        msg: 'Email not registered in the system'
       });
     }
 
-    res.json({ 
-      success: true, 
-      msg: 'Email is registered', 
+    res.json({
+      success: true,
+      msg: 'Email is registered',
       data: {
         email: user.email,
         name: user.name,
@@ -345,10 +345,10 @@ router.post('/check-email-registered', async (req, res) => {
     });
   } catch (err) {
     console.error('Check email registered error:', err);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error', 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      msg: 'Server error',
+      error: err.message
     });
   }
 });
@@ -358,23 +358,23 @@ router.post('/send-email-otp', async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) return res.status(400).json({ 
-      success: false, 
-      msg: 'Email is required' 
+    if (!email) return res.status(400).json({
+      success: false,
+      msg: 'Email is required'
     });
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json({ 
-      success: false, 
-      msg: 'Invalid email format' 
+    if (!emailRegex.test(email)) return res.status(400).json({
+      success: false,
+      msg: 'Invalid email format'
     });
 
     // Check if user exists
     let user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ 
-      success: false, 
-      msg: 'Email not registered in the system' 
+    if (!user) return res.status(404).json({
+      success: false,
+      msg: 'Email not registered in the system'
     });
 
     // Generate OTP
@@ -429,8 +429,8 @@ router.post('/send-email-otp', async (req, res) => {
     try {
       const info = await transporter.sendMail(mailOptions);
       console.log('📧 Email login OTP sent:', info.response);
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         msg: 'OTP sent successfully to your email',
         data: {
           email: user.email,
@@ -439,18 +439,18 @@ router.post('/send-email-otp', async (req, res) => {
       });
     } catch (emailError) {
       console.error('❌ Error sending email OTP:', emailError);
-      return res.status(500).json({ 
-        success: false, 
-        msg: 'Failed to send OTP email', 
-        error: emailError.message 
+      return res.status(500).json({
+        success: false,
+        msg: 'Failed to send OTP email',
+        error: emailError.message
       });
     }
   } catch (err) {
     console.error('Send email OTP error:', err);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error', 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      msg: 'Server error',
+      error: err.message
     });
   }
 });
@@ -460,28 +460,28 @@ router.post('/verify-email-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    if (!email || !otp) return res.status(400).json({ 
-      success: false, 
-      msg: 'Email and OTP are required' 
+    if (!email || !otp) return res.status(400).json({
+      success: false,
+      msg: 'Email and OTP are required'
     });
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json({ 
-      success: false, 
-      msg: 'Invalid email format' 
+    if (!emailRegex.test(email)) return res.status(400).json({
+      success: false,
+      msg: 'Invalid email format'
     });
 
     let user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ 
-      success: false, 
-      msg: 'User not found' 
+    if (!user) return res.status(404).json({
+      success: false,
+      msg: 'User not found'
     });
 
     if (user.otp !== otp || user.otpExpire < Date.now()) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Invalid or expired OTP' 
+      return res.status(400).json({
+        success: false,
+        msg: 'Invalid or expired OTP'
       });
     }
 
@@ -494,8 +494,8 @@ router.post('/verify-email-otp', async (req, res) => {
 
     console.log(`✅ Email OTP verified for ${email}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       msg: 'OTP verified successfully',
       data: {
         email: user.email,
@@ -504,10 +504,10 @@ router.post('/verify-email-otp', async (req, res) => {
     });
   } catch (err) {
     console.error('Verify email OTP error:', err);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error', 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      msg: 'Server error',
+      error: err.message
     });
   }
 });
@@ -517,37 +517,37 @@ router.post('/email-login', async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    if (!email || !otp) return res.status(400).json({ 
-      success: false, 
-      msg: 'Email and OTP are required' 
+    if (!email || !otp) return res.status(400).json({
+      success: false,
+      msg: 'Email and OTP are required'
     });
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json({ 
-      success: false, 
-      msg: 'Invalid email format' 
+    if (!emailRegex.test(email)) return res.status(400).json({
+      success: false,
+      msg: 'Invalid email format'
     });
 
-    let user = await User.findOne({ email }).populate('headOffice headOffices');
-    if (!user) return res.status(404).json({ 
-      success: false, 
-      msg: 'User not found' 
+    let user = await User.findOne({ email });
+    if (!user) return res.status(404).json({
+      success: false,
+      msg: 'User not found'
     });
 
     // Verify OTP
     if (user.otp !== otp || user.otpExpire < Date.now()) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Invalid or expired OTP' 
+      return res.status(400).json({
+        success: false,
+        msg: 'Invalid or expired OTP'
       });
     }
 
     // Check if email is verified
     if (!user.emailVerified) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Email not verified. Please verify your email first.' 
+      return res.status(400).json({
+        success: false,
+        msg: 'Email not verified. Please verify your email first.'
       });
     }
 
@@ -556,23 +556,17 @@ router.post('/email-login', async (req, res) => {
     user.otpExpire = null;
     await user.save();
 
+    // Populate headOffice and headOffices before sending response
+    const populatedUser = await User.findById(user._id)
+      .populate('headOffice', 'name code')
+      .populate('headOffices', 'name code');
+
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, role: user.role }, 
-      process.env.JWT_SECRET, 
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    // Handle multiple head offices - return as comma-separated string if multiple exist
-    let headOfficeResponse = user.headOffice;
-    if (user.headOffices && user.headOffices.length > 0) {
-      if (user.headOffices.length === 1) {
-        headOfficeResponse = user.headOffices[0]._id || user.headOffices[0];
-      } else {
-        // Multiple head offices - return as comma-separated string
-        headOfficeResponse = user.headOffices.map(ho => ho._id || ho).join(',');
-      }
-    }
 
     console.log(`🚀 Email login successful for ${email}`);
 
@@ -586,16 +580,121 @@ router.post('/email-login', async (req, res) => {
         email: user.email,
         role: user.role,
         emailVerified: user.emailVerified,
-        headOffice: headOfficeResponse,
-        employeeCode: user.employeeCode
+        employeeCode: user.employeeCode,
+        headOffices: populatedUser.headOffices && populatedUser.headOffices.length > 0 
+          ? populatedUser.headOffices 
+          : (populatedUser.headOffice ? [populatedUser.headOffice] : []),
       },
     });
   } catch (err) {
     console.error('Email login error:', err);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error', 
-      error: err.message 
+    res.status(500).json({
+      success: false,
+      msg: 'Server error',
+      error: err.message
+    });
+  }
+});
+
+// ADMIN IMPERSONATION - Login as another user
+router.post('/impersonate', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const adminToken = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!adminToken) {
+      return res.status(401).json({
+        success: false,
+        msg: 'Admin authentication required'
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        msg: 'User ID is required'
+      });
+    }
+
+    // Verify admin token
+    const decoded = jwt.verify(adminToken, process.env.JWT_SECRET);
+    const admin = await User.findById(decoded.id);
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        msg: 'Admin not found'
+      });
+    }
+
+    // Check if user has admin privileges
+    const adminRoles = ['Super Admin', 'Admin'];
+    if (!adminRoles.includes(admin.role)) {
+      return res.status(403).json({
+        success: false,
+        msg: 'Insufficient privileges. Only admins can impersonate users.'
+      });
+    }
+
+    // Find the user to impersonate with populated head offices
+    const targetUser = await User.findById(userId)
+      .populate('headOffice', 'name code')
+      .populate('headOffices', 'name code');
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        msg: 'Target user not found'
+      });
+    }
+
+    // Generate impersonation token
+    const impersonationToken = jwt.sign(
+      {
+        id: targetUser._id,
+        role: targetUser.role,
+        impersonatedBy: admin._id,
+        isImpersonation: true
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' } // Shorter expiry for security
+    );
+
+    console.log(`🎭 Admin ${admin.name} (${admin.email}) impersonating user ${targetUser.name} (${targetUser.email})`);
+
+    res.json({
+      success: true,
+      msg: `Successfully logged in as ${targetUser.name}`,
+      token: impersonationToken,
+      user: {
+        id: targetUser._id.toString(),
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+        emailVerified: targetUser.emailVerified,
+        employeeCode: targetUser.employeeCode,
+        isImpersonation: true,
+        impersonatedBy: {
+          id: admin._id,
+          name: admin.name,
+          email: admin.email
+        },
+        headOffices: targetUser.headOffices && targetUser.headOffices.length > 0 
+          ? targetUser.headOffices 
+          : (targetUser.headOffice ? [targetUser.headOffice] : []),
+      },
+    });
+  } catch (err) {
+    console.error('Impersonation error:', err);
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        msg: 'Invalid admin token'
+      });
+    }
+    res.status(500).json({
+      success: false,
+      msg: 'Server error',
+      error: err.message
     });
   }
 });

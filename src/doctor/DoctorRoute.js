@@ -4,6 +4,7 @@ const Doctor = require('./Doctor');
 const User = require('../user/User');
 const authMiddleware = require('./../middleware/authMiddleware');
 const HeadOffice = require('../headoffice/Model');
+const { validateObjectId, isValidObjectId } = require('../middleware/validateObjectId');
 
 
 // GET all doctors

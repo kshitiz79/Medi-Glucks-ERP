@@ -466,7 +466,8 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
             .populate('department', 'name')
             .populate('state', 'name')
             .populate('headOffice', 'name')
-            .select('name email employeeCode role department state headOffice isActive')
+            .populate('headOffices', 'name')
+            .select('name email employeeCode role department state headOffice headOffices isActive')
             .sort({ name: 1 });
 
         // Get location data for time range
@@ -511,6 +512,7 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
                         department: user.department,
                         state: user.state,
                         headOffice: user.headOffice,
+                        headOffices: user.headOffices,
                         isActive: user.isActive
                     },
                     currentLocation,
@@ -634,7 +636,8 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
             .populate('department', 'name')
             .populate('state', 'name')
             .populate('headOffice', 'name')
-            .select('name email employeeCode role department state headOffice isActive')
+            .populate('headOffices', 'name')
+            .select('name email employeeCode role department state headOffice headOffices isActive')
             .sort({ name: 1 });
 
         // Get current location for each user (most recent location)
@@ -663,6 +666,7 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
                         department: user.department,
                         state: user.state,
                         headOffice: user.headOffice,
+                        headOffices: user.headOffices,
                         isActive: user.isActive
                     },
                     currentLocation: currentLocation ? {
@@ -894,7 +898,8 @@ exports.getUser24HourLocationData = async (req, res) => {
         const targetUser = await User.findById(userId)
             .populate('state', 'name')
             .populate('headOffice', 'name')
-            .select('name email employeeCode role state headOffice isActive');
+            .populate('headOffices', 'name')
+            .select('name email employeeCode role state headOffice headOffices isActive');
 
         if (!targetUser) {
             return res.status(404).json({
@@ -1001,6 +1006,7 @@ exports.getUser24HourLocationData = async (req, res) => {
                     role: targetUser.role,
                     state: targetUser.state,
                     headOffice: targetUser.headOffice,
+                    headOffices: targetUser.headOffices,
                     isActive: targetUser.isActive
                 },
                 timeRange: {
@@ -1055,7 +1061,8 @@ exports.getUserCurrentLocationByStateHead = async (req, res) => {
         const targetUser = await User.findById(userId)
             .populate('state', 'name code')
             .populate('headOffice', 'name')
-            .select('name email employeeCode role state headOffice isActive');
+            .populate('headOffices', 'name')
+            .select('name email employeeCode role state headOffice headOffices isActive');
 
         if (!targetUser) {
             return res.status(404).json({
@@ -1121,6 +1128,7 @@ exports.getUserCurrentLocationByStateHead = async (req, res) => {
                         role: targetUser.role,
                         state: targetUser.state,
                         headOffice: targetUser.headOffice,
+                        headOffices: targetUser.headOffices,
                         isActive: targetUser.isActive
                     },
                     currentLocation: null,
@@ -1161,6 +1169,7 @@ exports.getUserCurrentLocationByStateHead = async (req, res) => {
                     role: targetUser.role,
                     state: targetUser.state,
                     headOffice: targetUser.headOffice,
+                    headOffices: targetUser.headOffices,
                     isActive: targetUser.isActive
                 },
                 currentLocation: {
