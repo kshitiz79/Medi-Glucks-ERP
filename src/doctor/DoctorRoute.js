@@ -88,12 +88,8 @@ router.get('/my-doctors', (req, res, next) => {
 
     console.log(`Found ${doctors.length} doctors for user ${req.user.id}`);
 
-    res.json({
-      success: true,
-      count: doctors.length,
-      data: doctors,
-      userHeadOffices: user.headOffices || [user.headOffice]
-    });
+    // Return same format as /by-head-office/:headOfficeId for consistency
+    res.json(doctors);
   } catch (error) {
     console.error('Get my doctors error:', error);
     res.status(500).json({
