@@ -6,6 +6,24 @@ const authMiddleware = require('./../middleware/authMiddleware');
 const HeadOffice = require('../headoffice/Model');
 const { validateObjectId, isValidObjectId } = require('../middleware/validateObjectId');
 
+// Middleware to log all requests
+router.use('*', (req, res, next) => {
+  console.log(`Doctor route hit: ${req.method} ${req.originalUrl}`);
+  console.log('Route params:', req.params);
+  console.log('Query params:', req.query);
+  next();
+});
+
+
+// Test route to verify routing is working
+router.get('/test', (req, res) => {
+  console.log('=== TEST ROUTE HIT ===');
+  res.json({
+    success: true,
+    message: 'Doctor routes are working',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // GET all doctors
 router.get('/', async (req, res) => {
@@ -25,8 +43,16 @@ router.get('/', async (req, res) => {
 });
 
 // GET doctors for current user's head offices (using token) - MUST BE BEFORE /:id
-router.get('/my-doctors', authMiddleware, async (req, res) => {
+router.get('/my-doctors', (req, res, next) => {
+  console.log('=== MY-DOCTORS ROUTE HIT ===');
+  console.log('URL:', req.originalUrl);
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers.authorization ? 'Auth header present' : 'No auth header');
+  next();
+}, authMiddleware, async (req, res) => {
   try {
+    console.log('My-doctors route authenticated with user:', req.user?.id);
+
     // Get user from token
     const user = await User.findById(req.user.id)
       .populate('headOffice', '_id name code')
@@ -41,7 +67,7 @@ router.get('/my-doctors', authMiddleware, async (req, res) => {
 
     // Get all user's head office IDs
     let headOfficeIds = [];
-    
+
     if (user.headOffices && user.headOffices.length > 0) {
       headOfficeIds = user.headOffices.map(office => office._id);
     } else if (user.headOffice) {
@@ -56,9 +82,11 @@ router.get('/my-doctors', authMiddleware, async (req, res) => {
     }
 
     // Find all doctors assigned to user's head offices
-    const doctors = await Doctor.find({ 
-      headOffice: { $in: headOfficeIds } 
+    const doctors = await Doctor.find({
+      headOffice: { $in: headOfficeIds }
     }).populate('headOffice', 'name code');
+
+    console.log(`Found ${doctors.length} doctors for user ${req.user.id}`);
 
     res.json({
       success: true,
@@ -75,14 +103,56 @@ router.get('/my-doctors', authMiddleware, async (req, res) => {
   }
 });
 
-// GET doctor by ID
-router.get('/:id', async (req, res) => {
+// GET doctor by ID - with parameter validation middleware
+router.get('/:id', (req, res, next) => {
+  // Clean up the ID parameter
+  if (req.params.id) {
+    const originalId = req.params.id;
+    req.params.id = req.params.id.trim();
+    if (originalId !== req.params.id) {
+      console.log(`Cleaned ID parameter: "${originalId}" -> "${req.params.id}"`);
+    }
+  }
+  next();
+}, async (req, res) => {
   try {
-    const doctor = await Doctor.findById(req.params.id).populate('headOffice');
-    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
-    res.json(doctor);
+    const id = req.params.id;
+
+    // Prevent specific route conflicts
+    if (id === 'my-doctors' || id.includes('my-doctors')) {
+      console.log(`Route conflict detected: "${id}" should use /my-doctors endpoint`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid route. Use /my-doctors endpoint instead.'
+      });
+    }
+
+    // Validate ObjectId format
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid doctor ID format'
+      });
+    }
+
+    const doctor = await Doctor.findById(id).populate('headOffice');
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: doctor
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Get doctor by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 });
 
