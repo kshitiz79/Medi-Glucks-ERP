@@ -46,7 +46,7 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        console.log('CORS Origin:', origin); // Debug log
+        // console.log('CORS Origin:', origin); // Debug log (commented out)
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -110,6 +110,7 @@ mongoose.connect(process.env.MONGO_URI)
         const versionRoutes = require('./src/version/versionRoutes');
         const payrollRoutes = require('./src/payroll/payrollRoutes');
         const cleanupRoutes = require('./src/admin/cleanupRoutes');
+        const designationRoutes = require('./src/designation/Route');
 
         app.use('/api/auth', authRoutes);
         app.use('/api/users', userRoutes);
@@ -117,6 +118,7 @@ mongoose.connect(process.env.MONGO_URI)
         app.use('/api/pdfs', pdfRoutes);
         app.use('/api/headoffices', headOfficeRouter);
         app.use('/api/states', stateRouter);
+        app.use('/api/designations', designationRoutes);
 
         app.use('/api/doctors', doctorRouter);
         app.use('/api/sales', salesActivityRoutes);
@@ -152,16 +154,16 @@ mongoose.connect(process.env.MONGO_URI)
 
         // Socket.IO connection handling
         io.on('connection', (socket) => {
-            console.log('Client connected:', socket.id);
+            // console.log('Client connected:', socket.id); // Debug log (commented out)
 
             // Join user-specific room for attendance updates
             socket.on('join-user-room', (userId) => {
                 socket.join(`user-${userId}`);
-                console.log(`User ${userId} joined their room`);
+                // console.log(`User ${userId} joined their room`); // Debug log (commented out)
             });
 
             socket.on('disconnect', () => {
-                console.log('Client disconnected:', socket.id);
+                // console.log('Client disconnected:', socket.id); // Debug log (commented out)
             });
         });
     })

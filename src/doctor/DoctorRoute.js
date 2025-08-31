@@ -6,13 +6,13 @@ const authMiddleware = require('./../middleware/authMiddleware');
 const HeadOffice = require('../headoffice/Model');
 const { validateObjectId, isValidObjectId } = require('../middleware/validateObjectId');
 
-// Middleware to log all requests
-router.use('*', (req, res, next) => {
-  console.log(`Doctor route hit: ${req.method} ${req.originalUrl}`);
-  console.log('Route params:', req.params);
-  console.log('Query params:', req.query);
-  next();
-});
+// Middleware to log all requests (commented out to reduce terminal noise)
+// router.use((req, res, next) => {
+//   console.log(`Doctor route hit: ${req.method} ${req.originalUrl}`);
+//   console.log('Route params:', req.params);
+//   console.log('Query params:', req.query);
+//   next();
+// });
 
 
 // Test route to verify routing is working

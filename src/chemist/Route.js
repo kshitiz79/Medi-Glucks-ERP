@@ -5,6 +5,7 @@ const ChemistVisit = require('./../chemistVisite/ChemistVisite');
 const HeadOffice = require('./../headoffice/Model');
 const Location = require('./../location/Location');
 const mongoose = require('mongoose');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // Helper function to calculate distance (Haversine formula)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -126,7 +127,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET chemists for current user's head offices (using token) - MUST BE BEFORE /:id
-router.get('/my-chemists', require('../middleware/authMiddleware'), async (req, res) => {
+router.get('/my-chemists', authMiddleware, async (req, res) => {
   try {
     const User = require('../user/User');
 
@@ -176,58 +177,6 @@ router.get('/my-chemists', require('../middleware/authMiddleware'), async (req, 
     res.status(500).json({
       success: false,
       message: error.message || 'Server error'
-    });
-  }
-});
-
-// PUT: Update a chemist
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedChemist = await Chemist.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updatedChemist) {
-      return res.status(404).json({
-        success: "false",
-        message: 'Chemist not found',
-        Data: []
-      });
-    }
-    res.status(200).json({
-      success: "true",
-      message: 'Chemist updated successfully',
-      Data: updatedChemist
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: "false",
-      message: error.message,
-      Data: []
-    });
-  }
-});
-
-// DELETE: Delete a chemist
-router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const chemist = await Chemist.findByIdAndDelete(id);
-    if (!chemist) {
-      return res.status(404).json({
-        success: "false",
-        message: 'Chemist not found',
-        Data: []
-      });
-    }
-    res.status(200).json({
-      success: "true",
-      message: 'Chemist deleted successfully',
-      Data: []
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: "false",
-      message: error.message,
-      Data: []
     });
   }
 });
@@ -282,6 +231,7 @@ router.get('/visits', async (req, res) => {
     const visits = await ChemistVisit.find().populate('chemist').populate('user');
     res.status(200).json(visits);
   } catch (error) {
+    console.error('Error fetching chemist visits:', error);
     res.status(500).json({
       success: "false",
       message: error.message,
@@ -307,6 +257,95 @@ router.get('/visits/user/:userId', async (req, res) => {
       success: "true",
       message: "Visits fetched successfully",
       Data: visits
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
+  }
+});
+
+// GET: Get chemist by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Chemist ID route hit with ID:', id);
+
+    // Validate ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('Invalid ObjectId format:', id);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid chemist ID format'
+      });
+    }
+
+    const chemist = await Chemist.findById(id).populate('headOffice', 'name code');
+
+    if (!chemist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chemist not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: chemist
+    });
+  } catch (error) {
+    console.error('Get chemist by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+});
+
+// PUT: Update a chemist
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedChemist = await Chemist.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedChemist) {
+      return res.status(404).json({
+        success: "false",
+        message: 'Chemist not found',
+        Data: []
+      });
+    }
+    res.status(200).json({
+      success: "true",
+      message: 'Chemist updated successfully',
+      Data: updatedChemist
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: "false",
+      message: error.message,
+      Data: []
+    });
+  }
+});
+
+// DELETE: Delete a chemist
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const chemist = await Chemist.findByIdAndDelete(id);
+    if (!chemist) {
+      return res.status(404).json({
+        success: "false",
+        message: 'Chemist not found',
+        Data: []
+      });
+    }
+    res.status(200).json({
+      success: "true",
+      message: 'Chemist deleted successfully',
+      Data: []
     });
   } catch (error) {
     res.status(500).json({

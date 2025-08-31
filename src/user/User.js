@@ -74,6 +74,10 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department'
   },
+  designation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Designation'
+  },
   employmentType: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'EmploymentType'

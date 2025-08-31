@@ -15,7 +15,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -134,7 +134,7 @@ router.get('/', async (req, res) => {
 router.get('/my-stockists', require('../middleware/authMiddleware'), async (req, res) => {
   try {
     const User = require('../user/User');
-    
+
     // Get user from token
     const user = await User.findById(req.user.id)
       .populate('headOffice', '_id name code')
@@ -149,7 +149,7 @@ router.get('/my-stockists', require('../middleware/authMiddleware'), async (req,
 
     // Get all user's head office IDs
     let headOfficeIds = [];
-    
+
     if (user.headOffices && user.headOffices.length > 0) {
       headOfficeIds = user.headOffices.map(office => office._id);
     } else if (user.headOffice) {
@@ -164,8 +164,8 @@ router.get('/my-stockists', require('../middleware/authMiddleware'), async (req,
     }
 
     // Find all stockists assigned to user's head offices
-    const stockists = await Stockist.find({ 
-      headOffice: { $in: headOfficeIds } 
+    const stockists = await Stockist.find({
+      headOffice: { $in: headOfficeIds }
     }).populate('headOffice', 'name code');
 
     res.json({
@@ -180,33 +180,6 @@ router.get('/my-stockists', require('../middleware/authMiddleware'), async (req,
       success: false,
       message: error.message || 'Server error'
     });
-  }
-});
-
-// PUT: Update a stockist
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedStockist = await Stockist.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updatedStockist) {
-      return res.status(404).json({ message: 'Stockist not found' });
-    }
-    res.status(200).json(updatedStockist);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const stockist = await Stockist.findByIdAndDelete(id);
-    if (!stockist) {
-      return res.status(404).json({ message: 'Stockist not found' });
-    }
-    res.status(200).json({ message: 'Stockist deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   }
 });
 
@@ -243,6 +216,7 @@ router.get('/visits', async (req, res) => {
     const visits = await StockistVisit.find().populate('stockist').populate('user');
     res.status(200).json(visits);
   } catch (error) {
+    console.error('Error fetching stockist visits:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -256,6 +230,70 @@ router.get('/visits/user/:userId', async (req, res) => {
 
     const visits = await StockistVisit.find({ user: userId }).populate('stockist');
     res.status(200).json(visits);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET: Get stockist by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Stockist ID route hit with ID:', id);
+
+    // Validate ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('Invalid ObjectId format:', id);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid stockist ID format'
+      });
+    }
+
+    const stockist = await Stockist.findById(id).populate('headOffice', 'name code');
+
+    if (!stockist) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stockist not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: stockist
+    });
+  } catch (error) {
+    console.error('Get stockist by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+});
+
+// PUT: Update a stockist
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedStockist = await Stockist.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedStockist) {
+      return res.status(404).json({ message: 'Stockist not found' });
+    }
+    res.status(200).json(updatedStockist);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const stockist = await Stockist.findByIdAndDelete(id);
+    if (!stockist) {
+      return res.status(404).json({ message: 'Stockist not found' });
+    }
+    res.status(200).json({ message: 'Stockist deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -312,7 +350,7 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
       return res.status(200).json({
         success: false,
         message: `You are ${Math.round(distance)} meters away from the stockist. Please be within 200 meters to confirm.`,
-        Data: [] 
+        Data: []
       });
     }
 
@@ -322,18 +360,20 @@ router.put('/visits/:visitId/confirm', async (req, res) => {
     visit.longitude = userLongitude;
     await visit.save();
 
+    // Populate the stockist data for the response
+    await visit.populate('stockist');
 
     res.status(200).json({
       success: true,
       message: "Visit confirmed successfully",
-      Data: [] 
+      data: visit
     });
 
   } catch (error) {
     res.status(400).json({
       success: false,
       message: error.message,
-      Data: [] 
+      Data: []
     });
   }
 });
@@ -346,7 +386,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Invalid Head Office ID format.',
- 
+
       });
     }
 
@@ -358,7 +398,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'No stockists found for the specified head office.',
-    
+
       });
     }
 
@@ -376,7 +416,7 @@ router.get('/by-head-office/:headOfficeId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching stockists. Please try again later.',
- 
+
     });
   }
 })
