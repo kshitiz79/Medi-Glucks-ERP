@@ -142,7 +142,7 @@ mongoose.connect(process.env.MONGO_URI)
         app.use('/api/version', versionRoutes);
         app.use('/api/payroll', payrollRoutes);
         app.use('/api/admin/cleanup', cleanupRoutes);
-        app.use('/api/mobile-dashboard', dashboardRoutes);
+        app.use('/api/mobile/dashboard', dashboardRoutes);
 
         app.get('/', (req, res) => {
             res.send('Sales Management API is running');
