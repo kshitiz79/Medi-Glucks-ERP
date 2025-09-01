@@ -1,5 +1,7 @@
 const User = require('../user/User');
-const Visit = require('../visit/Visit');
+const DoctorVisit = require('../DoctorVisite/DoctorVisit');
+const ChemistVisit = require('../chemistVisite/ChemistVisite');
+const StockistVisit = require('../stockistVisite/StockistVisit');
 const SalesActivity = require('../sales/SalesActivity');
 const Expense = require('../expencse/Expense');
 const SalesTarget = require('../salesTarget/SalesTarget');
@@ -114,28 +116,48 @@ const getVisitStatistics = async (userId, monthStart, monthEnd) => {
         const mongoose = require('mongoose');
         const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? mongoose.Types.ObjectId.createFromHexString(userId) : userId;
 
-        // Get all visits for the user in the current month
-        const visits = await Visit.find({
-            representativeId: userObjectId,
-            createdAt: { $gte: monthStart, $lte: monthEnd }
+        // Get visits from all three models for the user in the current month
+        const [doctorVisits, chemistVisits, stockistVisits] = await Promise.all([
+            DoctorVisit.find({
+                user: userObjectId,
+                createdAt: { $gte: monthStart, $lte: monthEnd }
+            }),
+            ChemistVisit.find({
+                user: userObjectId,
+                createdAt: { $gte: monthStart, $lte: monthEnd }
+            }),
+            StockistVisit.find({
+                user: userObjectId,
+                createdAt: { $gte: monthStart, $lte: monthEnd }
+            })
+        ]);
+
+        console.log('Visits Found:', {
+            doctor: doctorVisits.length,
+            chemist: chemistVisits.length,
+            stockist: stockistVisits.length,
+            total: doctorVisits.length + chemistVisits.length + stockistVisits.length
         });
 
-        console.log('Visits Found:', visits.length);
-
         // Let's also check if there are any visits for this user at all
-        const anyVisits = await Visit.find({ representativeId: userObjectId }).limit(5);
-        console.log('Any visits for user (sample):', anyVisits.map(v => ({
-            id: v._id,
-            createdAt: v.createdAt,
-            status: v.status
-        })));
+        const [anyDoctorVisits, anyChemistVisits, anyStockistVisits] = await Promise.all([
+            DoctorVisit.find({ user: userObjectId }).limit(3),
+            ChemistVisit.find({ user: userObjectId }).limit(3),
+            StockistVisit.find({ user: userObjectId }).limit(3)
+        ]);
+
+        console.log('Any visits for user (samples):', {
+            doctor: anyDoctorVisits.map(v => ({ id: v._id, date: v.date, confirmed: v.confirmed })),
+            chemist: anyChemistVisits.map(v => ({ id: v._id, date: v.date, confirmed: v.confirmed })),
+            stockist: anyStockistVisits.map(v => ({ id: v._id, date: v.date, confirmed: v.confirmed }))
+        });
 
         // Initialize counters
         const stats = {
-            doctor: { scheduled: 0, confirmed: 0, total: 0 },
-            chemist: { scheduled: 0, confirmed: 0, total: 0 },
-            stockist: { scheduled: 0, confirmed: 0, total: 0 },
-            total: visits.length,
+            doctor: { scheduled: 0, confirmed: 0, total: doctorVisits.length },
+            chemist: { scheduled: 0, confirmed: 0, total: chemistVisits.length },
+            stockist: { scheduled: 0, confirmed: 0, total: stockistVisits.length },
+            total: doctorVisits.length + chemistVisits.length + stockistVisits.length,
             scheduled: 0,
             confirmed: 0,
             submitted: 0,
@@ -144,34 +166,42 @@ const getVisitStatistics = async (userId, monthStart, monthEnd) => {
             draft: 0
         };
 
-        // Process visits
-        visits.forEach(visit => {
-            const status = visit.status?.toLowerCase() || 'draft';
-
-            // Count by status
-            if (stats[status] !== undefined) {
-                stats[status]++;
-            }
-
-            // Determine visit type based on doctor name or other criteria
-            // Since the current model doesn't have explicit visitType, we'll categorize based on available data
-            let visitType = 'doctor'; // Default to doctor visits
-
-            if (visit.doctorChemistName) {
-                // You can add logic here to determine if it's a doctor, chemist, or stockist
-                // For now, we'll assume all are doctor visits
-                visitType = 'doctor';
-            }
-
-            stats[visitType].total++;
-
-            // Map status to scheduled/confirmed for backward compatibility
-            if (status === 'draft' || status === 'submitted') {
-                stats[visitType].scheduled++;
-                stats.scheduled++;
-            } else if (status === 'approved') {
-                stats[visitType].confirmed++;
+        // Process doctor visits
+        doctorVisits.forEach(visit => {
+            if (visit.confirmed) {
+                stats.doctor.confirmed++;
                 stats.confirmed++;
+                stats.approved++; // Map confirmed to approved for backward compatibility
+            } else {
+                stats.doctor.scheduled++;
+                stats.scheduled++;
+                stats.draft++; // Map unconfirmed to draft for backward compatibility
+            }
+        });
+
+        // Process chemist visits
+        chemistVisits.forEach(visit => {
+            if (visit.confirmed) {
+                stats.chemist.confirmed++;
+                stats.confirmed++;
+                stats.approved++;
+            } else {
+                stats.chemist.scheduled++;
+                stats.scheduled++;
+                stats.draft++;
+            }
+        });
+
+        // Process stockist visits
+        stockistVisits.forEach(visit => {
+            if (visit.confirmed) {
+                stats.stockist.confirmed++;
+                stats.confirmed++;
+                stats.approved++;
+            } else {
+                stats.stockist.scheduled++;
+                stats.scheduled++;
+                stats.draft++;
             }
         });
 
