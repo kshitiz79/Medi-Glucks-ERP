@@ -249,9 +249,14 @@ attendanceSchema.pre('save', function(next) {
 
 // Instance method to format working hours
 attendanceSchema.methods.getFormattedWorkingHours = function() {
-    const hours = Math.floor(this.totalWorkingMinutes / 60);
-    const minutes = Math.round(this.totalWorkingMinutes % 60);
-    return `${hours}h ${minutes}m`;
+    const totalMinutes = Math.round(this.totalWorkingMinutes * 100) / 100; // Round to 2 decimal places
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.round((totalMinutes % 60) * 100) / 100; // Round minutes to 2 decimal places
+    
+    // Format minutes to show up to 2 decimal places, removing trailing zeros
+    const formattedMins = minutes % 1 === 0 ? Math.floor(minutes) : minutes.toFixed(2).replace(/\.?0+$/, '');
+    
+    return `${hours}h ${formattedMins}m`;
 };
 
 // Instance method to get current punch status

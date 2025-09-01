@@ -647,6 +647,14 @@ router.post('/impersonate', async (req, res) => {
       });
     }
 
+    // Prevent impersonating inactive users
+    if (!targetUser.isActive) {
+      return res.status(403).json({
+        success: false,
+        msg: 'Cannot impersonate inactive users. Please activate the user first.'
+      });
+    }
+
     // Generate impersonation token
     const impersonationToken = jwt.sign(
       {
@@ -659,7 +667,24 @@ router.post('/impersonate', async (req, res) => {
       { expiresIn: '2h' } // Shorter expiry for security
     );
 
-    console.log(`🎭 Admin ${admin.name} (${admin.email}) impersonating user ${targetUser.name} (${targetUser.email})`);
+    // Enhanced security logging
+    console.log(`🎭 IMPERSONATION AUDIT: Admin ${admin.name} (${admin.email}, ID: ${admin._id}) impersonating user ${targetUser.name} (${targetUser.email}, ID: ${targetUser._id}) at ${new Date().toISOString()}`);
+    
+    // Additional security checks
+    if (targetUser.role === 'Super Admin' && admin.role !== 'Super Admin') {
+      return res.status(403).json({
+        success: false,
+        msg: 'Cannot impersonate Super Admin users. Only Super Admins can impersonate other Super Admins.'
+      });
+    }
+
+    // Prevent impersonating other admins unless you're a Super Admin
+    if (['Admin', 'Super Admin'].includes(targetUser.role) && admin.role !== 'Super Admin') {
+      return res.status(403).json({
+        success: false,
+        msg: 'Cannot impersonate admin users. Only Super Admins can impersonate admin users.'
+      });
+    }
 
     res.json({
       success: true,
@@ -676,8 +701,10 @@ router.post('/impersonate', async (req, res) => {
         impersonatedBy: {
           id: admin._id,
           name: admin.name,
-          email: admin.email
+          email: admin.email,
+          role: admin.role
         },
+        impersonationStartTime: new Date().toISOString(),
         headOffices: targetUser.headOffices && targetUser.headOffices.length > 0 
           ? targetUser.headOffices 
           : (targetUser.headOffice ? [targetUser.headOffice] : []),

@@ -382,21 +382,31 @@ const getWeeklyAttendance = async(req, res) => {
         }).sort({ date: 1 });
 
         const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const weeklyData = weekDays.map((day, index) => {
+        const weeklyData = await Promise.all(weekDays.map(async (day, index) => {
             const dayDate = new Date(startOfWeek);
             dayDate.setDate(startOfWeek.getDate() + index);
+            const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long' });
 
             const attendance = attendanceRecords.find(record =>
                 record.date.toDateString() === dayDate.toDateString()
             );
 
+            // Check if user had a shift assigned for this day
+            const Shift = require('../shift/Shift');
+            const hasShiftAssigned = await Shift.findOne({
+                assignedUsers: attendanceUserId,
+                workDays: dayName,
+                isActive: true
+            });
+
             return {
                 day,
                 date: dayDate,
                 hours: attendance ? Math.round((attendance.totalWorkingMinutes / 60) * 10) / 10 : 0,
-                status: attendance ? attendance.status : 'absent'
+                status: attendance ? attendance.status : (hasShiftAssigned ? 'absent' : 'no_shift'),
+                hasShiftAssigned: !!hasShiftAssigned
             };
-        });
+        }));
 
         res.status(200).json({
             success: true,
@@ -438,25 +448,38 @@ const getMonthlyAttendance = async(req, res) => {
         );
 
         const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-        const monthlyData = Array.from({ length: daysInMonth }, (_, i) => {
+        const monthlyData = Array.from({ length: daysInMonth }, async (_, i) => {
             const day = i + 1;
             const dayDate = new Date(targetYear, targetMonth, day);
+            const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long' });
 
             const attendance = attendanceRecords.find(record =>
                 record.date.getDate() === day
             );
 
+            // Check if user had a shift assigned for this day
+            const Shift = require('../shift/Shift');
+            const hasShiftAssigned = await Shift.findOne({
+                assignedUsers: attendanceUserId,
+                workDays: dayName,
+                isActive: true
+            });
+
             return {
                 day,
                 date: dayDate,
                 hours: attendance ? Math.round((attendance.totalWorkingMinutes / 60) * 10) / 10 : 0,
-                status: attendance ? attendance.status : 'absent'
+                status: attendance ? attendance.status : (hasShiftAssigned ? 'absent' : 'no_shift'),
+                hasShiftAssigned: !!hasShiftAssigned
             };
         });
 
+        // Wait for all async operations to complete
+        const resolvedMonthlyData = await Promise.all(monthlyData);
+
         res.status(200).json({
             success: true,
-            data: monthlyData
+            data: resolvedMonthlyData
         });
 
     } catch (error) {
@@ -504,20 +527,141 @@ const getAttendanceStats = async(req, res) => {
     }
 };
 
-// Admin: Get All Attendance (Today)
+// Admin: Get All Attendance (Today or Date Range)
 const getAllAttendanceToday = async(req, res) => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const { startDate, endDate, department, status } = req.query;
+        
+        // If date range is provided, use it; otherwise use today
+        let start, end;
+        if (startDate && endDate) {
+            start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            start = end = today;
+        }
 
-        const attendanceRecords = await Attendance.find({
-                date: today
-            }).populate('userId', 'name employeeCode email role department')
-            .populate('shiftId', 'name startTime endTime');
+        // Build query filters
+        let attendanceQuery = {
+            date: { $gte: start, $lte: end }
+        };
 
-        // Get all users to include those who haven't punched in
-        const allUsers = await User.find({ isActive: true }, 'name employeeCode email role department');
+        const attendanceRecords = await Attendance.find(attendanceQuery)
+            .populate({
+                path: 'userId',
+                select: 'name employeeCode email role department',
+                populate: {
+                    path: 'department',
+                    select: 'name code'
+                }
+            })
+            .populate('shiftId', 'name startTime endTime')
+            .sort({ date: -1, 'userId.name': 1 });
 
+        // Get all active users for the date range to include absent days
+        let userQuery = { isActive: true };
+        if (department) {
+            userQuery.department = department;
+        }
+
+        const allUsers = await User.find(userQuery, 'name employeeCode email role department')
+            .populate('department', 'name code');
+
+        // If date range is provided, create comprehensive report
+        if (startDate && endDate) {
+            const reportData = [];
+            const currentDate = new Date(start);
+            const Shift = require('../shift/Shift');
+
+            while (currentDate <= end) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+                const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+                
+                // Get all shifts for this day to optimize queries
+                const shiftsForDay = await Shift.find({
+                    workDays: dayName,
+                    isActive: true
+                }).populate('assignedUsers', '_id');
+
+                for (const user of allUsers) {
+                    const attendance = attendanceRecords.find(record => 
+                        record.userId && 
+                        record.userId._id.toString() === user._id.toString() &&
+                        record.date.toISOString().split('T')[0] === dateStr
+                    );
+
+                    // Check if user had shift assigned for this day
+                    const hasShiftAssigned = shiftsForDay.some(shift => 
+                        shift.assignedUsers.some(assignedUser => 
+                            assignedUser._id.toString() === user._id.toString()
+                        )
+                    );
+
+                    const recordStatus = attendance ? attendance.status : (hasShiftAssigned ? 'absent' : 'no_shift');
+                    
+                    // Apply status filter if provided
+                    if (status && recordStatus !== status) {
+                        continue;
+                    }
+
+                    const attendanceData = attendance ? attendance.getSummary() : {
+                        status: recordStatus,
+                        punchSessions: [],
+                        currentSession: -1,
+                        firstPunchIn: null,
+                        lastPunchOut: null,
+                        workingHours: '0h 0m',
+                        totalWorkingMinutes: 0,
+                        totalBreakMinutes: 0,
+                        autoBreaks: [],
+                        hasShiftAssigned: !!hasShiftAssigned
+                    };
+
+                    reportData.push({
+                        date: dateStr,
+                        user: {
+                            _id: user._id,
+                            name: user.name,
+                            employeeCode: user.employeeCode,
+                            email: user.email,
+                            role: user.role,
+                            department: user.department?.name || 'Unassigned'
+                        },
+                        attendance: attendanceData,
+                        shift: attendance?.shiftId || null,
+                        hasShiftAssigned: !!hasShiftAssigned
+                    });
+                }
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            // Calculate summary statistics for date range
+            const summary = {
+                totalRecords: reportData.length,
+                presentDays: reportData.filter(r => r.attendance.status === 'present' || r.attendance.status === 'punched_in').length,
+                absentDays: reportData.filter(r => r.attendance.status === 'absent').length,
+                halfDays: reportData.filter(r => r.attendance.status === 'half_day').length,
+                noShiftDays: reportData.filter(r => r.attendance.status === 'no_shift').length,
+                totalWorkingHours: Math.round(reportData.reduce((sum, r) => sum + (r.attendance.totalWorkingMinutes / 60), 0) * 100) / 100,
+                averageWorkingHours: reportData.length > 0 ? 
+                    Math.round((reportData.reduce((sum, r) => sum + (r.attendance.totalWorkingMinutes / 60), 0) / reportData.length) * 100) / 100 : 0
+            };
+
+            return res.status(200).json({
+                success: true,
+                data: reportData,
+                summary,
+                dateRange: { startDate, endDate },
+                filters: { department, status }
+            });
+        }
+
+        // Original today-only logic
         const attendanceData = allUsers.map(user => {
             const attendance = attendanceRecords.find(record =>
                 record.userId && record.userId._id.toString() === user._id.toString()
@@ -529,7 +673,7 @@ const getAllAttendanceToday = async(req, res) => {
                 employeeCode: user.employeeCode,
                 email: user.email,
                 role: user.role,
-                department: user.department || 'N/A',
+                department: user.department?.name || 'N/A',
                 attendance: attendance ? attendance.getSummary() : {
                     status: 'absent',
                     punchSessions: [],
@@ -550,7 +694,7 @@ const getAllAttendanceToday = async(req, res) => {
             presentToday: attendanceRecords.filter(a => a.status === 'present' || a.status === 'punched_in').length,
             absentToday: allUsers.length - attendanceRecords.length,
             currentlyPunchedIn: attendanceRecords.filter(a => a.currentSession >= 0).length,
-            totalHoursToday: attendanceRecords.reduce((sum, a) => sum + (a.totalWorkingMinutes / 60), 0)
+            totalHoursToday: Math.round(attendanceRecords.reduce((sum, a) => sum + (a.totalWorkingMinutes / 60), 0) * 100) / 100
         };
 
         res.status(200).json({
@@ -566,6 +710,153 @@ const getAllAttendanceToday = async(req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to get attendance data',
+            error: error.message
+        });
+    }
+};
+
+// Admin: Get Attendance Report (Date Range)
+const getAttendanceReport = async(req, res) => {
+    try {
+        const { startDate, endDate, userId, department, status } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Start date and end date are required'
+            });
+        }
+
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        // Build query filters
+        let attendanceQuery = {
+            date: { $gte: start, $lte: end }
+        };
+
+        if (userId) {
+            attendanceQuery.userId = userId;
+        }
+
+        // Get attendance records
+        const attendanceRecords = await Attendance.find(attendanceQuery)
+            .populate({
+                path: 'userId',
+                select: 'name employeeCode email role department',
+                populate: {
+                    path: 'department',
+                    select: 'name code'
+                }
+            })
+            .populate('shiftId', 'name startTime endTime')
+            .sort({ date: -1, 'userId.name': 1 });
+
+        // Get all active users for the date range to include absent days
+        let userQuery = { isActive: true };
+        if (department) {
+            userQuery.department = department;
+        }
+
+        const allUsers = await User.find(userQuery, 'name employeeCode email role department')
+            .populate('department', 'name code');
+
+        // Create comprehensive report data
+        const reportData = [];
+        const currentDate = new Date(start);
+        const Shift = require('../shift/Shift');
+
+        while (currentDate <= end) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+            
+            // Get all shifts for this day to optimize queries
+            const shiftsForDay = await Shift.find({
+                workDays: dayName,
+                isActive: true
+            }).populate('assignedUsers', '_id');
+
+            for (const user of allUsers) {
+                const attendance = attendanceRecords.find(record => 
+                    record.userId && 
+                    record.userId._id.toString() === user._id.toString() &&
+                    record.date.toISOString().split('T')[0] === dateStr
+                );
+
+                // Check if user had shift assigned for this day
+                const hasShiftAssigned = shiftsForDay.some(shift => 
+                    shift.assignedUsers.some(assignedUser => 
+                        assignedUser._id.toString() === user._id.toString()
+                    )
+                );
+
+                const recordStatus = attendance ? attendance.status : (hasShiftAssigned ? 'absent' : 'no_shift');
+                
+                // Apply status filter if provided
+                if (status && recordStatus !== status) {
+                    continue;
+                }
+
+                const attendanceData = attendance ? attendance.getSummary() : {
+                    status: recordStatus,
+                    punchSessions: [],
+                    currentSession: -1,
+                    firstPunchIn: null,
+                    lastPunchOut: null,
+                    workingHours: '0h 0m',
+                    totalWorkingMinutes: 0,
+                    totalBreakMinutes: 0,
+                    autoBreaks: [],
+                    hasShiftAssigned: !!hasShiftAssigned
+                };
+
+                reportData.push({
+                    date: dateStr,
+                    user: {
+                        _id: user._id,
+                        name: user.name,
+                        employeeCode: user.employeeCode,
+                        email: user.email,
+                        role: user.role,
+                        department: user.department?.name || 'Unassigned'
+                    },
+                    attendance: attendanceData,
+                    shift: attendance?.shiftId || null,
+                    hasShiftAssigned: !!hasShiftAssigned
+                });
+            }
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Calculate summary statistics
+        const summary = {
+            totalRecords: reportData.length,
+            presentDays: reportData.filter(r => r.attendance.status === 'present' || r.attendance.status === 'punched_in').length,
+            absentDays: reportData.filter(r => r.attendance.status === 'absent').length,
+            halfDays: reportData.filter(r => r.attendance.status === 'half_day').length,
+            noShiftDays: reportData.filter(r => r.attendance.status === 'no_shift').length,
+            totalWorkingHours: Math.round(reportData.reduce((sum, r) => sum + (r.attendance.totalWorkingMinutes / 60), 0) * 100) / 100,
+            averageWorkingHours: reportData.length > 0 ? 
+                Math.round((reportData.reduce((sum, r) => sum + (r.attendance.totalWorkingMinutes / 60), 0) / reportData.length) * 100) / 100 : 0
+        };
+
+        res.status(200).json({
+            success: true,
+            data: reportData,
+            summary,
+            dateRange: { startDate, endDate },
+            filters: { userId, department, status }
+        });
+
+    } catch (error) {
+        console.error('Get attendance report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get attendance report',
             error: error.message
         });
     }
@@ -599,5 +890,6 @@ module.exports = {
     getWeeklyAttendance,
     getMonthlyAttendance,
     getAttendanceStats,
-    getAllAttendanceToday
+    getAllAttendanceToday,
+    getAttendanceReport
 };

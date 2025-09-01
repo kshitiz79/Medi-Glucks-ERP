@@ -38,7 +38,7 @@ app.use(helmet());
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
-
+    'http://localhost:3000',
     'https://gluckscare.com',
     'https://gluckscare.com',
     'https://sales-rep-visite.gluckscare.com',
@@ -111,6 +111,7 @@ mongoose.connect(process.env.MONGO_URI)
         const payrollRoutes = require('./src/payroll/payrollRoutes');
         const cleanupRoutes = require('./src/admin/cleanupRoutes');
         const designationRoutes = require('./src/designation/Route');
+        const dashboardRoutes = require('./src/dashboard/userDashboardRoutes');
 
         app.use('/api/auth', authRoutes);
         app.use('/api/users', userRoutes);
@@ -141,6 +142,7 @@ mongoose.connect(process.env.MONGO_URI)
         app.use('/api/version', versionRoutes);
         app.use('/api/payroll', payrollRoutes);
         app.use('/api/admin/cleanup', cleanupRoutes);
+        app.use('/api/dashboard', dashboardRoutes);
 
         app.get('/', (req, res) => {
             res.send('Sales Management API is running');
