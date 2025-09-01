@@ -8,7 +8,7 @@ const SalesTarget = require('../salesTarget/SalesTarget');
  * Get comprehensive user dashboard data
  * GET /api/dashboard/user
  */
-exports.getUserDashboard = async (req, res) => {
+const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user.id;
     const currentDate = new Date();
