@@ -58,9 +58,11 @@ const getUserDashboard = async (req, res) => {
             targetData
         });
 
-        // Helper function to ensure double representation with guaranteed decimal places
-        const toDoubleString = (value) => {
-            return parseFloat(parseFloat(value).toFixed(1));
+        // Helper function to ensure double/float formatting
+        const ensureDouble = (value) => {
+            // Convert to number and ensure it has decimal precision
+            const num = Number(value);
+            return parseFloat(num.toFixed(1));
         };
 
         // Construct dashboard response
@@ -87,32 +89,37 @@ const getUserDashboard = async (req, res) => {
                     : `Latest target: ${targetData.targetPeriod || 'N/A'} (No current month target found)`
             },
             summary: {
-                totalActivities: (visitStats.total + salesData.totalActivities).toFixed(1),
-                visitCompletionRate: (visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0).toFixed(1),
-                targetAchievement: (targetData.achievementPercentage).toFixed(1),
-                pendingExpenses: (expenseData.pending).toFixed(1),
-                totalExpenseAmount: (expenseData.totalAmount).toFixed(1)
+                totalActivities: ensureDouble(visitStats.total + salesData.totalActivities),
+                visitCompletionRate: ensureDouble(visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0),
+                targetAchievement: ensureDouble(targetData.achievementPercentage || 0),
+                pendingExpenses: ensureDouble(expenseData.pending || 0),
+                totalExpenseAmount: ensureDouble(expenseData.totalAmount || 0)
             }
         };
 
-        // Create response with custom serialization for summary fields
-        const responseJSON = JSON.stringify({
+        // Use custom JSON.stringify replacer to force double formatting
+        const responseJson = JSON.stringify({
             success: true,
             data: dashboardData,
             message: 'Dashboard data retrieved successfully'
         }, (key, value) => {
-            // Custom serializer to force decimal representation for summary fields
+            // For summary fields, ensure they're always returned as doubles
             if (key === 'totalActivities' || key === 'visitCompletionRate' || 
                 key === 'targetAchievement' || key === 'pendingExpenses' || 
                 key === 'totalExpenseAmount') {
-                // Return as number with guaranteed 1 decimal place
-                return parseFloat(Number(value).toFixed(1));
+                return Number(value.toFixed(1));
             }
             return value;
         });
-        
+
+        // Replace integer formatting with decimal formatting in the final JSON
+        const finalJson = responseJson.replace(
+            /"(totalActivities|visitCompletionRate|targetAchievement|pendingExpenses|totalExpenseAmount)":(\s*)(\d+)(?!\.)/g,
+            '"$1":$2$3.0'
+        );
+
         res.setHeader('Content-Type', 'application/json');
-        res.send(responseJSON);
+        res.send(finalJson);
 
     } catch (error) {
         console.error('Get user dashboard error:', error);
