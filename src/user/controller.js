@@ -865,14 +865,28 @@ exports.getMyHeadOffices = async(req, res) => {
  */
 exports.getUsersForShiftAssignment = async(req, res) => {
     try {
-        const { search, department, role } = req.query;
+        const { 
+            search, 
+            department, 
+            role, 
+            page = 1, 
+            limit = 100 // Default limit of 100 users per page
+        } = req.query;
         
-        // Build query for active users only
-        let query = { 
-            isActive: true,
-            // Exclude admin roles from shift assignment
-            role: { $nin: ['Super Admin', 'Admin'] }
-        };
+        // Build query - more inclusive for shift assignment
+        let query = {};
+        
+        // Only exclude inactive users if specifically requested
+        // By default, show all users including admins for shift assignment
+        const { includeInactive = 'false', excludeAdmins = 'false' } = req.query;
+        
+        if (includeInactive !== 'true') {
+            query.isActive = true;
+        }
+        
+        if (excludeAdmins === 'true') {
+            query.role = { $nin: ['Super Admin', 'Admin'] };
+        }
 
         // Add search filter if provided
         if (search) {
@@ -893,14 +907,27 @@ exports.getUsersForShiftAssignment = async(req, res) => {
             query.role = role;
         }
 
-        const users = await User.find(query)
-            .populate('department', 'name')
-            .populate('designation', 'name')
-            .populate('headOffice', 'name')
-            .populate('headOffices', 'name')
-            .populate('state', 'name')
-            .select('employeeCode name email role department headOffice headOffices state mobileNumber dateOfJoining isActive')
-            .sort({ name: 1 }); // Sort by name alphabetically
+        // Debug: Log the final query
+        console.log('Shift assignment query:', JSON.stringify(query, null, 2));
+        console.log('Query parameters:', { search, department, role, page, limit, includeInactive, excludeAdmins });
+
+        // Calculate pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Execute queries in parallel for better performance
+        const [users, totalCount] = await Promise.all([
+            User.find(query)
+                .populate('department', 'name')
+                .populate('designation', 'name')
+                .populate('headOffice', 'name')
+                .populate('headOffices', 'name')
+                .populate('state', 'name')
+                .select('employeeCode name email role department headOffice headOffices state mobileNumber dateOfJoining isActive')
+                .sort({ name: 1 }) // Sort by name alphabetically
+                .skip(skip)
+                .limit(parseInt(limit)),
+            User.countDocuments(query)
+        ]);
 
         // Format the response for frontend consumption
         const formattedUsers = users.map(user => ({
@@ -917,10 +944,24 @@ exports.getUsersForShiftAssignment = async(req, res) => {
             isActive: user.isActive
         }));
 
+        // Calculate pagination info
+        const totalPages = Math.ceil(totalCount / parseInt(limit));
+        const hasNext = parseInt(page) < totalPages;
+        const hasPrev = parseInt(page) > 1;
+
         res.json({
             success: true,
             count: formattedUsers.length,
-            data: formattedUsers
+            totalCount,
+            data: formattedUsers,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalCount,
+                limit: parseInt(limit),
+                hasNext,
+                hasPrev
+            }
         });
     } catch (err) {
         console.error('Get users for shift assignment error:', err);

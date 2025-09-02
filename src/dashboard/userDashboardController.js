@@ -58,13 +58,6 @@ const getUserDashboard = async (req, res) => {
             targetData
         });
 
-        // Helper function to ensure double/float formatting
-        const ensureDouble = (value) => {
-            // Convert to number and ensure it has decimal precision
-            const num = Number(value);
-            return parseFloat(num.toFixed(1));
-        };
-
         // Construct dashboard response
         const dashboardData = {
             user: {
@@ -89,37 +82,19 @@ const getUserDashboard = async (req, res) => {
                     : `Latest target: ${targetData.targetPeriod || 'N/A'} (No current month target found)`
             },
             summary: {
-                totalActivities: ensureDouble(visitStats.total + salesData.totalActivities),
-                visitCompletionRate: ensureDouble(visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0),
-                targetAchievement: ensureDouble(targetData.achievementPercentage || 0),
-                pendingExpenses: ensureDouble(expenseData.pending || 0),
-                totalExpenseAmount: ensureDouble(expenseData.totalAmount || 0)
+                totalActivities: parseFloat((visitStats.total + salesData.totalActivities).toFixed(1)),
+                visitCompletionRate: parseFloat((visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0).toFixed(1)),
+                targetAchievement: parseFloat((targetData.achievementPercentage || 0).toFixed(1)),
+                pendingExpenses: parseFloat((expenseData.pending || 0).toFixed(1)),
+                totalExpenseAmount: parseFloat((expenseData.totalAmount || 0).toFixed(1))
             }
         };
 
-        // Use custom JSON.stringify replacer to force double formatting
-        const responseJson = JSON.stringify({
+        res.json({
             success: true,
             data: dashboardData,
             message: 'Dashboard data retrieved successfully'
-        }, (key, value) => {
-            // For summary fields, ensure they're always returned as doubles
-            if (key === 'totalActivities' || key === 'visitCompletionRate' || 
-                key === 'targetAchievement' || key === 'pendingExpenses' || 
-                key === 'totalExpenseAmount') {
-                return Number(value.toFixed(1));
-            }
-            return value;
         });
-
-        // Replace integer formatting with decimal formatting in the final JSON
-        const finalJson = responseJson.replace(
-            /"(totalActivities|visitCompletionRate|targetAchievement|pendingExpenses|totalExpenseAmount)":(\s*)(\d+)(?!\.)/g,
-            '"$1":$2$3.0'
-        );
-
-        res.setHeader('Content-Type', 'application/json');
-        res.send(finalJson);
 
     } catch (error) {
         console.error('Get user dashboard error:', error);
