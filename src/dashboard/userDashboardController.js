@@ -71,22 +71,66 @@ const getUserDashboard = async (req, res) => {
                 year: currentYear,
                 monthName: monthStart.toLocaleDateString('en-US', { month: 'long' })
             },
-            visits: visitStats,
-            sales: salesData,
-            expenses: expenseData,
+            visits: {
+                doctor: {
+                    scheduled: Math.floor(visitStats.doctor.scheduled),
+                    confirmed: Math.floor(visitStats.doctor.confirmed),
+                    total: Math.floor(visitStats.doctor.total)
+                },
+                chemist: {
+                    scheduled: Math.floor(visitStats.chemist.scheduled),
+                    confirmed: Math.floor(visitStats.chemist.confirmed),
+                    total: Math.floor(visitStats.chemist.total)
+                },
+                stockist: {
+                    scheduled: Math.floor(visitStats.stockist.scheduled),
+                    confirmed: Math.floor(visitStats.stockist.confirmed),
+                    total: Math.floor(visitStats.stockist.total)
+                },
+                total: Math.floor(visitStats.total),
+                scheduled: Math.floor(visitStats.scheduled),
+                confirmed: Math.floor(visitStats.confirmed),
+                submitted: Math.floor(visitStats.submitted),
+                approved: Math.floor(visitStats.approved),
+                rejected: Math.floor(visitStats.rejected),
+                draft: Math.floor(visitStats.draft)
+            },
+            sales: {
+                totalActivities: Math.floor(salesData.totalActivities),
+                totalCalls: Math.floor(salesData.totalCalls),
+                avgCallsPerDay: parseFloat(salesData.avgCallsPerDay.toFixed(1))
+            },
+            expenses: {
+                total: Math.floor(expenseData.total),
+                approved: Math.floor(expenseData.approved),
+                pending: Math.floor(expenseData.pending),
+                rejected: Math.floor(expenseData.rejected),
+                totalAmount: Math.floor(expenseData.totalAmount),
+                approvedAmount: Math.floor(expenseData.approvedAmount),
+                pendingAmount: Math.floor(expenseData.pendingAmount),
+                rejectedAmount: Math.floor(expenseData.rejectedAmount)
+            },
             targets: {
-                ...targetData,
-                // Add helpful context about target period
+                monthlyTarget: Math.floor(targetData.monthlyTarget || 0),
+                achieved: Math.floor(targetData.achieved || 0),
+                remaining: Math.floor(targetData.remaining || 0),
+                achievementPercentage: Math.floor(targetData.achievementPercentage || 0),
+                status: targetData.status,
+                deadline: targetData.deadline,
+                targetMonth: Math.floor(targetData.targetMonth),
+                targetYear: Math.floor(targetData.targetYear),
+                isCurrentMonth: targetData.isCurrentMonth,
+                targetPeriod: targetData.targetPeriod,
                 displayMessage: targetData.isCurrentMonth 
                     ? `Current month target (${targetData.targetPeriod || 'N/A'})`
                     : `Latest target: ${targetData.targetPeriod || 'N/A'} (No current month target found)`
             },
             summary: {
-                totalActivities: parseFloat((visitStats.total + salesData.totalActivities).toFixed(1)),
-                visitCompletionRate: parseFloat((visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0).toFixed(1)),
-                targetAchievement: parseFloat((targetData.achievementPercentage || 0).toFixed(1)),
-                pendingExpenses: parseFloat((expenseData.pending || 0).toFixed(1)),
-                totalExpenseAmount: parseFloat((expenseData.totalAmount || 0).toFixed(1))
+                totalActivities: (visitStats.total + salesData.totalActivities).toFixed(1),
+                visitCompletionRate: (visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0).toFixed(1),
+                targetAchievement: (targetData.achievementPercentage || 0).toFixed(1),
+                pendingExpenses: (expenseData.pending || 0).toFixed(1),
+                totalExpenseAmount: (expenseData.totalAmount || 0).toFixed(1)
             }
         };
 
