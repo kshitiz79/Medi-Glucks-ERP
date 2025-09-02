@@ -58,6 +58,11 @@ const getUserDashboard = async (req, res) => {
             targetData
         });
 
+        // Helper function to ensure double representation with guaranteed decimal places
+        const toDoubleString = (value) => {
+            return parseFloat(parseFloat(value).toFixed(1));
+        };
+
         // Construct dashboard response
         const dashboardData = {
             user: {
@@ -82,19 +87,32 @@ const getUserDashboard = async (req, res) => {
                     : `Latest target: ${targetData.targetPeriod || 'N/A'} (No current month target found)`
             },
             summary: {
-                totalActivities: visitStats.total + salesData.totalActivities,
-                visitCompletionRate: visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100).toFixed(1) : 0,
-                targetAchievement: targetData.achievementPercentage,
-                pendingExpenses: expenseData.pending,
-                totalExpenseAmount: expenseData.totalAmount
+                totalActivities: (visitStats.total + salesData.totalActivities).toFixed(1),
+                visitCompletionRate: (visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0).toFixed(1),
+                targetAchievement: (targetData.achievementPercentage).toFixed(1),
+                pendingExpenses: (expenseData.pending).toFixed(1),
+                totalExpenseAmount: (expenseData.totalAmount).toFixed(1)
             }
         };
 
-        res.json({
+        // Create response with custom serialization for summary fields
+        const responseJSON = JSON.stringify({
             success: true,
             data: dashboardData,
             message: 'Dashboard data retrieved successfully'
+        }, (key, value) => {
+            // Custom serializer to force decimal representation for summary fields
+            if (key === 'totalActivities' || key === 'visitCompletionRate' || 
+                key === 'targetAchievement' || key === 'pendingExpenses' || 
+                key === 'totalExpenseAmount') {
+                // Return as number with guaranteed 1 decimal place
+                return parseFloat(Number(value).toFixed(1));
+            }
+            return value;
         });
+        
+        res.setHeader('Content-Type', 'application/json');
+        res.send(responseJSON);
 
     } catch (error) {
         console.error('Get user dashboard error:', error);
