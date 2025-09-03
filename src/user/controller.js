@@ -3,45 +3,92 @@ const User = require('./User');
 const bcrypt = require('bcryptjs');
 
 /**
- * Get all users
+ * Get all users with enhanced pagination and search
  * GET /api/users
  */
 exports.getAllUsers = async(req, res) => {
     try {
-        const { role, branch, department } = req.query;
+        const { 
+            role, 
+            branch, 
+            department, 
+            search, 
+            page = 1, 
+            limit = 20,
+            sortBy = 'name',
+            sortOrder = 'asc',
+            isActive
+        } = req.query;
+        
         let query = {};
 
-        if (role) {
-            query.role = role;
+        // Basic filters
+        if (role) query.role = role;
+        if (branch) query.branch = branch;
+        if (department) query.department = department;
+        if (isActive !== undefined) query.isActive = isActive === 'true';
+
+        // Search functionality
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$or = [
+                { name: searchRegex },
+                { email: searchRegex },
+                { employeeCode: searchRegex },
+                { mobileNumber: searchRegex }
+            ];
         }
 
-        if (branch) {
-            query.branch = branch;
-        }
+        // Pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-        if (department) {
-            query.department = department;
-        }
+        // Execute queries in parallel for better performance
+        const [users, totalCount] = await Promise.all([
+            User.find(query)
+                .populate('branch', 'name code')
+                .populate('department', 'name code')
+                .populate('designation', 'name description')
+                .populate('employmentType', 'name code')
+                .populate('headOffice', 'name code')
+                .populate('headOffices', 'name code')
+                .populate('manager', 'name email role')
+                .populate('managers', 'name email role')
+                .populate('areaManagers', 'name email role')
+                .populate('state', 'name code')
+                .populate('createdBy', 'name')
+                .populate('updatedBy', 'name')
+                .select('-password -legalDocuments')
+                .sort(sortOptions)
+                .skip(skip)
+                .limit(parseInt(limit)),
+            User.countDocuments(query)
+        ]);
 
-        const users = await User.find(query)
-            .populate('branch', 'name code')
-            .populate('department', 'name code')
-            .populate('designation', 'name description')
-            .populate('employmentType', 'name code')
-            .populate('headOffice', 'name code')
-            .populate('headOffices', 'name code')
-            .populate('manager', 'name email role')
-            .populate('managers', 'name email role')
-            .populate('areaManagers', 'name email role')
-            .populate('state', 'name code')
-            .populate('createdBy', 'name')
-            .populate('updatedBy', 'name')
-            .select('-password -legalDocuments'); // Exclude sensitive data
+        // Calculate pagination info
+        const totalPages = Math.ceil(totalCount / parseInt(limit));
+        const hasNext = parseInt(page) < totalPages;
+        const hasPrev = parseInt(page) > 1;
 
         res.json({
             success: true,
-            count: users.length,
-            data: users
+            data: users,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalCount,
+                limit: parseInt(limit),
+                hasNext,
+                hasPrev
+            },
+            filters: {
+                role,
+                branch,
+                department,
+                search,
+                isActive
+            }
         });
     } catch (err) {
         console.error('Get all users error:', err);

@@ -25,7 +25,7 @@ exports.getUsersLocationTracker = async (req, res) => {
             department,
             role,
             state,
-            limit = 50,
+            limit = 25,
             page = 1
         } = req.query;
 
@@ -84,11 +84,19 @@ exports.getUsersLocationTracker = async (req, res) => {
             .select('name email employeeCode role department state isActive')
             .sort({ name: 1 });
 
-        // Get location data for time range
+        // Get location data for time range (limited to prevent memory issues)
+        const queryTimeout = 15000; // 15 seconds timeout
+        const maxLocationsPerUser = 5; // Limit locations per user
+        
         const locations = await Location.find({
             timestamp: timeRange,
-            userId: { $in: users.map(u => u._id) }
-        }).sort({ timestamp: -1 });
+            userId: { $in: users.map(u => u._id) },
+            isSuspicious: { $ne: true } // Exclude suspicious locations
+        })
+        .sort({ timestamp: -1 })
+        .limit(users.length * maxLocationsPerUser) // Dynamic limit based on user count
+        .lean() // Use lean() for better performance
+        .maxTimeMS(queryTimeout);
 
         // Group locations by user
         const locationsByUser = {};
@@ -128,7 +136,7 @@ exports.getUsersLocationTracker = async (req, res) => {
                         isActive: user.isActive
                     },
                     currentLocation,
-                    locationHistory: userLocations,
+                    locationHistory: userLocations.slice(0, 2), // Limit to 2 most recent points to prevent crashes with 10000+ users
                     analytics,
                     isOnline,
                     lastSeen: currentLocation ? currentLocation.timestamp : null
@@ -210,7 +218,9 @@ exports.getUserLocationHistory = async (req, res) => {
             startDate,
             endDate,
             hours = '24',
-            includeAnalytics = 'true'
+            includeAnalytics = 'true',
+            page = 1,
+            limit = 10
         } = req.query;
 
         // Build time range
@@ -263,11 +273,30 @@ exports.getUserLocationHistory = async (req, res) => {
             });
         }
 
-        // Get location history
-        const locations = await Location.find({
-            userId,
-            timestamp: timeRange
-        }).sort({ timestamp: 1 });
+        // Get location history with pagination (most recent first)
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        // Use Promise.all for parallel execution and add timeout
+        const queryTimeout = 15000; // 15 seconds timeout
+        
+        const [totalCount, locations] = await Promise.all([
+            Location.countDocuments({
+                userId,
+                timestamp: timeRange,
+                isSuspicious: { $ne: true } // Exclude suspicious locations
+            }).maxTimeMS(queryTimeout),
+            
+            Location.find({
+                userId,
+                timestamp: timeRange,
+                isSuspicious: { $ne: true } // Exclude suspicious locations
+            })
+            .sort({ timestamp: -1 }) // Most recent first
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean() // Use lean() for better performance
+            .maxTimeMS(queryTimeout)
+        ]);
 
         // Calculate analytics
         let analytics = null;
@@ -292,15 +321,24 @@ exports.getUserLocationHistory = async (req, res) => {
                 locations,
                 locationsByHour,
                 analytics,
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages: Math.ceil(totalCount / parseInt(limit)),
+                    totalRecords: totalCount,
+                    limit: parseInt(limit),
+                    hasNext: skip + parseInt(limit) < totalCount,
+                    hasPrev: parseInt(page) > 1
+                },
                 summary: {
-                    totalPoints: locations.length,
+                    totalPoints: totalCount,
+                    displayedPoints: locations.length,
                     timeRange: {
                         from: timeRange.$gte,
                         to: timeRange.$lte || new Date(),
                         hours: parseInt(hours)
                     },
-                    firstLocation: locations[0] || null,
-                    lastLocation: locations[locations.length - 1] || null
+                    firstLocation: locations[locations.length - 1] || null, // Most recent first, so last in array is oldest
+                    lastLocation: locations[0] || null // Most recent
                 }
             }
         });

@@ -6,6 +6,8 @@
         "start": "node index.js",
         "dev": "nodemon index.js",
         "test": "echo \"Error: no test specified\" && exit 1",
+        "test:db": "node test-db-connection.js",
+        "monitor:locations": "node monitor-location-queries.js",
         "test:attendance": "node test/attendance-test.js",
         "migrate:attendance": "node scripts/migrateAttendanceData.js",
         "seed:states": "node scripts/seedStates.js",
