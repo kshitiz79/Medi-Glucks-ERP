@@ -121,33 +121,68 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    // Validate input
+    if (!email || !password) {
+      console.log('Login validation failed:', { email: !!email, password: !!password });
+      return res.status(400).json({ msg: 'Email and password are required' });
+    }
+
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      console.log('Login type validation failed:', { emailType: typeof email, passwordType: typeof password });
+      return res.status(400).json({ msg: 'Email and password must be strings' });
+    }
+
+    console.log('Login attempt for email:', email);
+    
     const user = await User.findOne({ email })
       .populate('headOffice', 'name code')
       .populate('headOffices', 'name code');
-    if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
+    
+    if (!user) {
+      console.log('User not found for email:', email);
+      return res.status(400).json({ msg: 'Invalid credentials' });
+    }
 
+    if (!user.password) {
+      console.log('User has no password set:', email);
+      return res.status(400).json({ msg: 'Invalid credentials' });
+    }
+
+    console.log('Comparing passwords for user:', email);
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
+    if (!isMatch) {
+      console.log('Password mismatch for user:', email);
+      return res.status(400).json({ msg: 'Invalid credentials' });
+    }
 
+    console.log('Login successful for user:', email, 'Role:', user.role);
+    
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    const responseUser = {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      phone: user.phone,
+      headOffices: user.headOffices && user.headOffices.length > 0 
+        ? user.headOffices 
+        : (user.headOffice ? [user.headOffice] : []),
+    };
+
+    console.log('Sending login response for user:', responseUser.id);
 
     res.json({
       token,
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        emailVerified: user.emailVerified,
-        phone: user.phone,
-        headOffices: user.headOffices && user.headOffices.length > 0 
-          ? user.headOffices 
-          : (user.headOffice ? [user.headOffice] : []),
-      },
+      user: responseUser,
     });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ msg: 'Server error' });
+    console.error('Login error stack:', err.stack);
+    console.error('Request body:', req.body);
+    res.status(500).json({ msg: 'Server error during login' });
   }
 })
 

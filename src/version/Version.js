@@ -37,7 +37,22 @@ const versionSchema = new mongoose.Schema({
         osVersion: {
             type: String,
             trim: true
+        },
+        model: {
+            type: String,
+            trim: true
+        },
+        manufacturer: {
+            type: String,
+            trim: true
         }
+    },
+    
+    // Build information
+    buildNumber: {
+        type: String,
+        trim: true,
+        description: 'App build number'
     },
     
     // Version comparison result
@@ -57,6 +72,15 @@ const versionSchema = new mongoose.Schema({
     versionCheckDate: {
         type: Date,
         default: Date.now
+    },
+    lastCheckDate: {
+        type: Date,
+        default: Date.now
+    },
+    checkCount: {
+        type: Number,
+        default: 1,
+        description: 'Number of times user has checked version'
     },
     lastUpdatePromptDate: {
         type: Date
@@ -98,9 +122,11 @@ const versionSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-versionSchema.index({ userId: 1 });
+versionSchema.index({ userId: 1 }, { unique: true }); // Ensure one record per user
 versionSchema.index({ versionCheckDate: -1 });
 versionSchema.index({ currentVersion: 1, playStoreVersion: 1 });
+versionSchema.index({ updateRequired: 1 });
+versionSchema.index({ 'deviceInfo.platform': 1 });
 
 // Instance method to compare versions
 versionSchema.methods.compareVersions = function() {

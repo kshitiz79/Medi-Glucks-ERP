@@ -123,6 +123,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         const cleanupRoutes = require('./src/admin/cleanupRoutes');
         const designationRoutes = require('./src/designation/Route');
         const dashboardRoutes = require('./src/dashboard/userDashboardRoutes');
+        const debugRoutes = require('./src/debug/debugRoutes');
 
         app.use('/api/auth', authRoutes);
         app.use('/api/users', userRoutes);
@@ -154,6 +155,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         app.use('/api/payroll', payrollRoutes);
         app.use('/api/admin/cleanup', cleanupRoutes);
         app.use('/api/mobile/dashboard', dashboardRoutes);
+        app.use('/api/debug', debugRoutes);
 
         app.get('/', (req, res) => {
             res.send('Sales Management API is running');

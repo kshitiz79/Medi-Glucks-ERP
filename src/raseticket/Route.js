@@ -20,19 +20,8 @@ const upload = multer({
   },
 });
 
-// Middleware to verify JWT
-const authMiddleware = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, role, iat, exp }
-    next();
-  } catch (err) {
-    console.error('JWT verify failed:', err);
-    res.status(401).json({ msg: 'Invalid token' });
-  }
-};
+// Use centralized auth middleware
+const authMiddleware = require('../middleware/authMiddleware');
 
 // Middleware to restrict to Admins
 const adminMiddleware = (req, res, next) => {
