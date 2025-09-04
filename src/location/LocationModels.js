@@ -5,8 +5,7 @@ const LocationHistorySchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
     coordinates: [{
         lat: {
@@ -77,8 +76,7 @@ const StopEventSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
     location: {
         lat: {
@@ -135,8 +133,7 @@ const RealTimeLocationSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
-        unique: true,
-        index: true
+        unique: true
     },
     location: {
         lat: {
@@ -194,8 +191,7 @@ const LocationEventSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
     rawData: {
         lat: {
@@ -221,8 +217,7 @@ const LocationEventSchema = new mongoose.Schema({
     },
     processed: {
         type: Boolean,
-        default: false,
-        index: true
+        default: false
     },
     processingResult: {
         action: {
@@ -253,13 +248,11 @@ const HighFrequencyTrackSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
     sessionStart: {
         type: Date,
-        required: true,
-        index: true
+        required: true
     },
     sessionEnd: {
         type: Date,
@@ -324,7 +317,7 @@ StopEventSchema.index({ userId: 1, startTime: -1 });
 StopEventSchema.index({ userId: 1, isActive: 1 });
 StopEventSchema.index({ startTime: 1, endTime: 1 });
 
-RealTimeLocationSchema.index({ userId: 1 }, { unique: true });
+// RealTimeLocationSchema.index({ userId: 1 }, { unique: true }); // Removed: field-level unique: true already creates this index
 RealTimeLocationSchema.index({ lastUpdated: -1 });
 
 LocationEventSchema.index({ userId: 1, createdAt: -1 });

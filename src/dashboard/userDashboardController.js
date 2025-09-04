@@ -7,6 +7,14 @@ const Expense = require('../expencse/Expense');
 const SalesTarget = require('../salesTarget/SalesTarget');
 
 /**
+ * Helper function to ensure consistent decimal formatting for summary values
+ * Returns a number with exactly one decimal place
+ */
+const formatSummaryValue = (value) => {
+    return Math.round(value * 10) / 10;
+};
+
+/**
  * Get comprehensive user dashboard data
  * GET /api/dashboard/user
  */
@@ -126,11 +134,11 @@ const getUserDashboard = async (req, res) => {
                     : `Latest target: ${targetData.targetPeriod || 'N/A'} (No current month target found)`
             },
             summary: {
-                totalActivities: (visitStats.total + salesData.totalActivities).toFixed(1),
-                visitCompletionRate: (visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0).toFixed(1),
-                targetAchievement: (targetData.achievementPercentage || 0).toFixed(1),
-                pendingExpenses: (expenseData.pending || 0).toFixed(1),
-                totalExpenseAmount: (expenseData.totalAmount || 0).toFixed(1)
+                totalActivities: formatSummaryValue(visitStats.total + salesData.totalActivities),
+                visitCompletionRate: formatSummaryValue(visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0),
+                targetAchievement: formatSummaryValue(targetData.achievementPercentage || 0),
+                pendingExpenses: formatSummaryValue(expenseData.pending || 0),
+                totalExpenseAmount: formatSummaryValue(expenseData.totalAmount || 0)
             }
         };
 

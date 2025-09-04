@@ -4,8 +4,7 @@ const locationSchema = new mongoose.Schema({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
-    required: true,
-    index: true
+    required: true
   },
   userName: { 
     type: String,
@@ -43,8 +42,7 @@ const locationSchema = new mongoose.Schema({
   },
   timestamp: { 
     type: Date, 
-    default: Date.now,
-    index: true
+    default: Date.now
   },
   // Optional enhanced fields
   accuracy: {

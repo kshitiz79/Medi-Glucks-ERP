@@ -193,7 +193,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         server.listen(PORT, async () => {
             // Server running on port
             // Socket.IO server initialized
-            
+
             // Initialize Redis connection
             try {
                 await redisClient.connect();
@@ -201,7 +201,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
             } catch (error) {
                 // Redis connection failed
             }
-            
+
             // Initialize Location WebSocket service
             const locationWS = new LocationWebSocket(io);
             // Location WebSocket service initialized
@@ -220,7 +220,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
             // GPS Tracking - Join location tracking room
             socket.on('join-location-tracking', (data) => {
                 const { userId, userType } = data;
-                
+
                 if (userType === 'admin') {
                     socket.join('admin-location-tracking');
                     // Admin client joined location tracking
