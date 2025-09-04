@@ -1,0 +1,18 @@
+{
+    "sourceFile": "scripts/forceSaveUsers.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757009643455,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757009643455,
+            "name": "Commit-0",
+            "content": "const mongoose = require('mongoose');\nrequire('dotenv').config();\n\n// Import models\nconst User = require('../src/user/User');\n\n// MongoDB connection\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/glcukscare', {\n      useNewUrlParser: true,\n      useUnifiedTopology: true,\n    });\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\n// Function to force save all users to ensure data consistency\nconst forceSaveAllUsers = async () => {\n  try {\n    console.log('Force saving all users to ensure data consistency...');\n    \n    // Find all active users\n    const allUsers = await User.find({ isActive: true }).select('_id name email headOffices');\n    \n    console.log(`Found ${allUsers.length} active users`);\n    \n    let savedCount = 0;\n    \n    for (const user of allUsers) {\n      console.log(`\\nProcessing ${user.name} (${user.email})...`);\n      \n      // Check if user has headOffices\n      if (user.headOffices && Array.isArray(user.headOffices) && user.headOffices.length > 0) {\n        console.log(`  Has ${user.headOffices.length} head offices`);\n        \n        // Force save to ensure data is properly stored\n        try {\n          await user.save();\n          console.log(`  ✓ Force saved successfully`);\n          savedCount++;\n        } catch (saveErr) {\n          console.log(`  ✗ Failed to save:`, saveErr.message);\n        }\n      } else {\n        console.log(`  No head offices or not an array`);\n      }\n    }\n    \n    console.log(`\\n=== SUMMARY ===`);\n    console.log(`Force saved ${savedCount} users`);\n    console.log(`Data consistency process completed!`);\n    \n  } catch (error) {\n    console.error('Error force saving users:', error);\n  }\n};\n\n// Run the force save\nconst run = async () => {\n  await connectDB();\n  await forceSaveAllUsers();\n  process.exit(0);\n};\n\nrun();"
+        }
+    ]
+}

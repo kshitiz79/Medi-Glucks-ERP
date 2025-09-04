@@ -1,6 +1,7 @@
 // controllers/userController.js
 const User = require('./User');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 
 /**
  * Get all users with enhanced pagination and search
@@ -761,12 +762,18 @@ exports.getUsersByState = async(req, res) => {
         }).select('_id');
 
         const headOfficeIds = headOfficesInState.map(ho => ho._id);
-
-        // Build query to find users assigned to head offices in this state
+        
+        // Build query to find users in this state
+        // Include users who are:
+        // 1. Directly assigned to the state
+        // 2. Assigned to head offices in this state (using headOffices array only)
+        
         let query = {
             isActive: true,
             $or: [
-                { headOffice: { $in: headOfficeIds } },
+                // Direct state assignment
+                { state: stateId },
+                // Multiple head offices assignment (headOffices array)
                 { headOffices: { $in: headOfficeIds } }
             ]
         };
@@ -801,12 +808,11 @@ exports.getUsersByState = async(req, res) => {
             User.find(query)
                 .populate('department', 'name')
                 .populate('designation', 'name')
-                .populate('headOffice', 'name state')
                 .populate('headOffices', 'name state')
                 .populate('state', 'name')
                 .populate('branch', 'name')
                 .populate('employmentType', 'name')
-                .select('employeeCode name email role department headOffice headOffices state branch employmentType mobileNumber dateOfJoining salaryAmount isActive createdAt')
+                .select('employeeCode name email role department headOffices state branch employmentType mobileNumber dateOfJoining isActive createdAt')
                 .sort({ name: 1 })
                 .skip(skip)
                 .limit(parseInt(limit)),
@@ -821,14 +827,12 @@ exports.getUsersByState = async(req, res) => {
             email: user.email,
             role: user.role,
             department: user.department?.name || 'Not Assigned',
-            headOffice: user.headOffice?.name || 'Not Assigned',
             headOffices: user.headOffices?.map(ho => ho.name).join(', ') || 'Not Assigned',
             state: user.state?.name || stateHeadUser.state.name,
             branch: user.branch?.name || 'Not Assigned',
             employmentType: user.employmentType?.name || 'Not Assigned',
             mobileNumber: user.mobileNumber,
             dateOfJoining: user.dateOfJoining,
-            salaryAmount: user.salaryAmount,
             isActive: user.isActive,
             createdAt: user.createdAt
         }));
@@ -868,8 +872,95 @@ exports.getUsersByState = async(req, res) => {
 };
 
 /**
- * Get current user's assigned head offices
- * GET /api/users/my-head-offices
+ * Debug endpoint to test user queries by state
+ * GET /api/users/debug-by-state
+ */
+exports.debugUsersByState = async(req, res) => {
+    try {
+        const currentUser = req.user;
+
+        // Check if the current user is a State Head
+        if (!currentUser || currentUser.role !== 'State Head') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Only State Heads can access this endpoint.'
+            });
+        }
+
+        // Get the current user's state
+        const stateHeadUser = await User.findById(currentUser.id).populate('state');
+        
+        if (!stateHeadUser || !stateHeadUser.state) {
+            return res.status(400).json({
+                success: false,
+                message: 'State Head must be assigned to a state to view users.'
+            });
+        }
+
+        const stateId = stateHeadUser.state._id;
+
+        // Get head offices in the state
+        const HeadOffice = require('../headoffice/Model');
+        const headOfficesInState = await HeadOffice.find({ 
+            state: stateId, 
+            isActive: true 
+        }).select('_id name');
+
+        const headOfficeIds = headOfficesInState.map(ho => ho._id);
+        
+        // Test individual conditions
+        const directStateUsers = await User.find({ isActive: true, state: stateId }).select('name email headOffices state');
+        const headOfficesUsers = await User.find({ isActive: true, headOffices: { $in: headOfficeIds } }).select('name email headOffices state');
+        
+        // Test specific users
+        const chandanUser = await User.findOne({ email: 'chandan.kumar@gluckscare.com' }).select('name headOffices');
+        const kshitizUser = await User.findOne({ email: 'kshitizmaurya6@gmail.com' }).select('name headOffices');
+        
+        res.json({
+            success: true,
+            debug: {
+                stateId: stateId,
+                stateName: stateHeadUser.state.name,
+                headOfficesInState: headOfficesInState,
+                headOfficeIds: headOfficeIds.map(id => id.toString()),
+                directStateUsers: directStateUsers.map(u => ({
+                    name: u.name,
+                    email: u.email,
+                    headOffices: u.headOffices?.map(ho => ho.toString())
+                })),
+                headOfficesUsers: headOfficesUsers.map(u => ({
+                    name: u.name,
+                    email: u.email,
+                    headOffices: u.headOffices?.map(ho => ho.toString())
+                })),
+                specificUsers: {
+                    chandan: chandanUser ? {
+                        name: chandanUser.name,
+                        headOffices: chandanUser.headOffices?.map(ho => ho.toString())
+                    } : null,
+                    kshitiz: kshitizUser ? {
+                        name: kshitizUser.name,
+                        headOffices: kshitizUser.headOffices?.map(ho => ho.toString())
+                    } : null
+                },
+                counts: {
+                    directState: directStateUsers.length,
+                    headOffices: headOfficesUsers.length
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Debug users by state error:', err);
+        res.status(500).json({
+            success: false,
+            message: err.message || 'Server error'
+        });
+    }
+};
+
+/**
+ * Get my head offices
+ * GET /api/users/my-headoffices
  */
 exports.getMyHeadOffices = async(req, res) => {
     try {
@@ -898,7 +989,6 @@ exports.getMyHeadOffices = async(req, res) => {
             data: headOffices
         });
     } catch (err) {
-        console.error('Get my head offices error:', err);
         res.status(500).json({
             success: false,
             message: err.message || 'Server error'
@@ -953,10 +1043,6 @@ exports.getUsersForShiftAssignment = async(req, res) => {
         if (role) {
             query.role = role;
         }
-
-        // Debug: Log the final query
-        console.log('Shift assignment query:', JSON.stringify(query, null, 2));
-        console.log('Query parameters:', { search, department, role, page, limit, includeInactive, excludeAdmins });
 
         // Calculate pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);

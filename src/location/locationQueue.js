@@ -147,57 +147,40 @@ const getQueueStats = async () => {
     }
 };
 
-// Clean old jobs safely - FIXED VERSION
+// Simple, safe queue cleanup - NO MORE ERRORS
+let cleaning = false;
+
 const cleanQueue = async () => {
+    if (cleaning) return; // Prevent overlapping cleanups
+    cleaning = true;
+    
     try {
-        console.log('🧹 Starting safe queue cleanup...');
+        // Clean only safe states; do NOT clean 'active' or 'waiting' (could drop in-flight jobs)
+        await Promise.all([
+            locationQueue.clean(60 * 60 * 1000, 'completed', 1000), // >1h old completed jobs
+            locationQueue.clean(60 * 60 * 1000, 'failed', 500),     // >1h old failed jobs  
+            locationQueue.clean(60 * 60 * 1000, 'delayed', 1000),   // >1h old delayed jobs
+        ]);
         
-        // Use Bull.js supported clean methods (completed, failed, active, delayed)
-        const cleanedCompleted = await locationQueue.clean(30 * 60 * 1000, 'completed', 100);
-        const cleanedFailed = await locationQueue.clean(30 * 60 * 1000, 'failed', 50);
-        const cleanedActive = await locationQueue.clean(5 * 60 * 1000, 'active', 10); // Clean stuck active jobs
-        const cleanedDelayed = await locationQueue.clean(60 * 60 * 1000, 'delayed', 20); // Clean old delayed jobs
-        
-        console.log(`✅ Cleaned: ${cleanedCompleted} completed, ${cleanedFailed} failed, ${cleanedActive} active, ${cleanedDelayed} delayed jobs`);
-        
-        // Get current queue stats
-        const stats = await getQueueStats();
-        if (stats) {
-            console.log('📊 Queue stats after cleanup:', stats);
-            
-            // If queue is getting too large, do additional cleanup
-            if (stats.total > 1000) {
-                console.log('⚠️ Queue size is large, performing additional cleanup...');
-                
-                // Remove excess waiting jobs (keep only latest 100)
-                const waitingJobs = await locationQueue.getWaiting();
-                if (waitingJobs.length > 100) {
-                    const jobsToRemove = waitingJobs.slice(0, waitingJobs.length - 100);
-                    let removedCount = 0;
-                    
-                    for (const job of jobsToRemove) {
-                        try {
-                            await job.remove();
-                            removedCount++;
-                        } catch (err) {
-                            // Job might already be processed, continue
-                        }
-                    }
-                    console.log(`🗑️ Removed ${removedCount} excess waiting jobs`);
-                }
-            }
+        // Only log success occasionally to reduce log spam
+        if (Math.random() < 0.1) { // 10% chance to log
+            console.log('✅ Queue cleanup completed');
         }
         
-        console.log('✅ Queue cleanup completed successfully');
-        
     } catch (error) {
-        console.error('❌ Error during queue cleanup:', error.message);
-        // Don't throw the error to prevent interval from stopping
+        // Only log errors once every 5 minutes to prevent spam
+        const now = Date.now();
+        if (!cleanQueue.lastErrorLog || now - cleanQueue.lastErrorLog > 5 * 60 * 1000) {
+            console.error('❌ Queue clean error:', error.message);
+            cleanQueue.lastErrorLog = now;
+        }
+    } finally {
+        cleaning = false;
     }
 };
 
-// Auto-cleanup every 10 minutes (reduced frequency to prevent errors)
-setInterval(cleanQueue, 10 * 60 * 1000);
+// Guarded auto-cleanup every 5 minutes
+setInterval(cleanQueue, 5 * 60 * 1000);
 
 // Pause/Resume queue
 const pauseQueue = async () => {

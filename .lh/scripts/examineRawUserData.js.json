@@ -1,0 +1,18 @@
+{
+    "sourceFile": "scripts/examineRawUserData.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757009643455,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757009643455,
+            "name": "Commit-0",
+            "content": "const mongoose = require('mongoose');\nrequire('dotenv').config();\n\n// Import models\nconst User = require('../src/user/User');\n\n// MongoDB connection\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/glcukscare', {\n      useNewUrlParser: true,\n      useUnifiedTopology: true,\n    });\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\n// Function to examine raw user data\nconst examineRawUserData = async () => {\n  try {\n    console.log('Examining raw user data...');\n    \n    const usersToExamine = [\n      'chandan.kumar@gluckscare.com',\n      'kundan.kumar@gluckscare.com'\n    ];\n    \n    for (const email of usersToExamine) {\n      // Get the raw document from MongoDB\n      const userDoc = await User.collection.findOne({ email: email });\n      \n      if (!userDoc) {\n        console.log(`\\n${email} - NOT FOUND`);\n        continue;\n      }\n      \n      console.log(`\\n=== ${userDoc.name} (${userDoc.email}) ===`);\n      console.log(`_id: ${userDoc._id}`);\n      console.log(`headOffices:`, userDoc.headOffices);\n      console.log(`headOffices type:`, Array.isArray(userDoc.headOffices) ? 'Array' : typeof userDoc.headOffices);\n      \n      if (Array.isArray(userDoc.headOffices)) {\n        console.log(`headOffices elements:`);\n        userDoc.headOffices.forEach((office, index) => {\n          console.log(`  [${index}]:`, office);\n          console.log(`    type:`, typeof office);\n          console.log(`    constructor:`, office.constructor.name);\n          if (office._id) {\n            console.log(`    _id type:`, typeof office._id);\n            console.log(`    _id constructor:`, office._id.constructor.name);\n          }\n        });\n      }\n      \n      // Test specific query on this raw document\n      const madhubaniId = '68a2f6f9c2507f6549b12547';\n      \n      // Check if this user should match\n      let shouldMatch = false;\n      if (Array.isArray(userDoc.headOffices)) {\n        for (const office of userDoc.headOffices) {\n          const officeId = office._id ? office._id.toString() : office.toString();\n          if (officeId === madhubaniId) {\n            shouldMatch = true;\n            break;\n          }\n        }\n      }\n      \n      console.log(`Should match Madhubani query: ${shouldMatch}`);\n      \n      // Test the actual MongoDB query\n      const queryResult = await User.collection.find({ \n        email: email,\n        headOffices: { $in: [new mongoose.Types.ObjectId(madhubaniId)] } \n      }).toArray();\n      \n      console.log(`MongoDB query result: ${queryResult.length > 0 ? 'MATCH' : 'NO MATCH'}`);\n    }\n    \n  } catch (error) {\n    console.error('Error examining raw user data:', error);\n  }\n};\n\n// Run the examination\nconst run = async () => {\n  await connectDB();\n  await examineRawUserData();\n  process.exit(0);\n};\n\nrun();"
+        }
+    ]
+}

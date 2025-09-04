@@ -1,0 +1,18 @@
+{
+    "sourceFile": "src/user/userRoutes.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757005774728,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757005774728,
+            "name": "Commit-0",
+            "content": "// routes/userRoutes.js\nconst express = require('express');\nconst router = express.Router();\n// Make sure the path and file name match exactly\nconst { getAllUsers, getUserById, createUser, updateUser, deleteUser, getUsersByRole, updateProfile, updateUserPassword, getUsersForShiftAssignment, getUsersByState, getMyHeadOffices, debugUsersByState } = require('./controller');\nconst auth = require('../middleware/authMiddleware');\nconst { uploadUserDocuments } = require('../middleware/upload');\n\n// GET all users\nrouter.get('/', auth, getAllUsers);\n\n// GET users by state for State Head\nrouter.get('/by-state', auth, getUsersByState);\n\n// GET debug endpoint for state-based user queries\nrouter.get('/debug-by-state', auth, debugUsersByState);\n\n// GET current user's assigned head offices\nrouter.get('/my-head-offices', auth, getMyHeadOffices);\n\n// GET active users for shift assignment\nrouter.get('/for-shift-assignment', auth, getUsersForShiftAssignment);\n\n// GET users by role\nrouter.get('/role/:role', auth, getUsersByRole);\n\n// GET one user by ID\nrouter.get('/:id', auth, getUserById);\n\n// CREATE new user (with file upload support)\nrouter.post('/', auth, uploadUserDocuments, createUser);\n\n// UPDATE user by ID (with file upload support)\nrouter.put('/:id', auth, uploadUserDocuments, updateUser);\n\n// UPDATE user profile (authenticated user can update their own profile)\nrouter.patch('/profile', auth, updateProfile);\n\n// UPDATE user password (Admin / Super Admin)\nrouter.put('/:id/password', auth, updateUserPassword);\n\n// DELETE user by ID\nrouter.delete('/:id', auth, deleteUser);\n\nmodule.exports = router;\n"
+        }
+    ]
+}

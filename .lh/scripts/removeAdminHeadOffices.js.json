@@ -1,0 +1,18 @@
+{
+    "sourceFile": "scripts/removeAdminHeadOffices.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757009643455,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757009643455,
+            "name": "Commit-0",
+            "content": "const mongoose = require('mongoose');\nrequire('dotenv').config();\n\n// Import models\nconst User = require('../src/user/User');\n\n// MongoDB connection\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/glcukscare');\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\n// Function to remove headOffices from Admin users\nconst removeAdminHeadOffices = async () => {\n  try {\n    console.log('Removing headOffices from Admin users...\\n');\n    \n    // Find all Admin users with headOffices\n    const adminUsers = await User.find({ \n      role: 'Admin',\n      headOffices: { $exists: true, $ne: [] }\n    }).select('_id name email headOffices');\n    \n    console.log(`Found ${adminUsers.length} Admin users with headOffices:\\n`);\n    \n    let updatedCount = 0;\n    \n    for (const user of adminUsers) {\n      console.log(`Processing: ${user.name} (${user.email})`);\n      console.log(`  Current headOffices:`, user.headOffices);\n      \n      // Remove headOffices field\n      user.headOffices = [];\n      \n      try {\n        await user.save();\n        console.log(`  ✓ Updated user successfully`);\n        updatedCount++;\n      } catch (saveErr) {\n        console.log(`  ✗ Failed to save user:`, saveErr.message);\n      }\n      \n      console.log('');\n    }\n    \n    console.log(`=== SUMMARY ===`);\n    console.log(`Updated ${updatedCount} Admin users`);\n    console.log(`Removal of headOffices from Admin users completed!\\n`);\n    \n  } catch (error) {\n    console.error('Error removing headOffices from Admin users:', error);\n  }\n};\n\n// Run the removal\nconst run = async () => {\n  await connectDB();\n  await removeAdminHeadOffices();\n  process.exit(0);\n};\n\nrun();"
+        }
+    ]
+}

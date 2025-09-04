@@ -1,0 +1,18 @@
+{
+    "sourceFile": "scripts/checkAdminUsers.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757009643455,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757009643455,
+            "name": "Commit-0",
+            "content": "const mongoose = require('mongoose');\nrequire('dotenv').config();\n\n// Import models\nconst User = require('../src/user/User');\n\n// MongoDB connection\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/glcukscare');\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\n// Function to check Admin users\nconst checkAdminUsers = async () => {\n  try {\n    console.log('Checking Admin users...\\n');\n    \n    // Find all Admin users\n    const adminUsers = await User.find({ role: 'Admin' }).select('_id name email headOffice headOffices');\n    \n    console.log(`Found ${adminUsers.length} Admin users:\\n`);\n    \n    for (const user of adminUsers) {\n      console.log(`User: ${user.name} (${user.email})`);\n      console.log(`  headOffice:`, user.headOffice);\n      console.log(`  headOffices:`, user.headOffices);\n      console.log('');\n    }\n    \n    // Check if any Admin users have headOffice field populated\n    const adminsWithHeadOffice = await User.find({ \n      role: 'Admin',\n      headOffice: { $exists: true, $ne: null }\n    }).select('_id name email headOffice');\n    \n    console.log(`Admin users with headOffice field: ${adminsWithHeadOffice.length}`);\n    \n    if (adminsWithHeadOffice.length > 0) {\n      console.log('These Admin users have headOffice field that should be removed:');\n      adminsWithHeadOffice.forEach(user => {\n        console.log(`  - ${user.name} (${user.email}): ${user.headOffice}`);\n      });\n    } else {\n      console.log('No Admin users found with headOffice field.');\n    }\n    \n  } catch (error) {\n    console.error('Error checking Admin users:', error);\n  }\n};\n\n// Run the check\nconst run = async () => {\n  await connectDB();\n  await checkAdminUsers();\n  process.exit(0);\n};\n\nrun();"
+        }
+    ]
+}

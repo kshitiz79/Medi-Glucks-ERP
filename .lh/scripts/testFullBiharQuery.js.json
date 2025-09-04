@@ -1,0 +1,18 @@
+{
+    "sourceFile": "scripts/testFullBiharQuery.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757009643455,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757009643455,
+            "name": "Commit-0",
+            "content": "const mongoose = require('mongoose');\nrequire('dotenv').config();\n\n// Import models\nconst User = require('../src/user/User');\nconst HeadOffice = require('../src/headoffice/Model');\n\n// MongoDB connection\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/glcukscare', {\n      useNewUrlParser: true,\n      useUnifiedTopology: true,\n    });\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\n// Function to test the full Bihar query\nconst testFullBiharQuery = async () => {\n  try {\n    console.log('Testing full Bihar state query...');\n    \n    // Get ALL head offices in Bihar state (like the controller does)\n    const headOfficesInState = await HeadOffice.find({ \n      state: '68b15e4690379b108fcc82dd', // Bihar state ID\n      isActive: true \n    }).select('_id');\n    \n    const headOfficeIds = headOfficesInState.map(ho => ho._id);\n    \n    console.log(`Found ${headOfficeIds.length} head offices in Bihar state`);\n    \n    // Convert to strings for easier comparison\n    const headOfficeIdStrings = headOfficeIds.map(id => id.toString());\n    console.log('First 10 Bihar head office IDs:', headOfficeIdStrings.slice(0, 10));\n    \n    // Test each user individually to see which ones match\n    const allUsers = await User.find({ isActive: true }).select('name email headOffices');\n    \n    console.log(`\\nTesting ${allUsers.length} users individually:`);\n    \n    let matchingUsers = [];\n    \n    for (const user of allUsers) {\n      if (user.headOffices && Array.isArray(user.headOffices)) {\n        for (const office of user.headOffices) {\n          const officeId = office.toString();\n          if (headOfficeIdStrings.includes(officeId)) {\n            console.log(`  ✓ ${user.name} has Bihar head office: ${officeId}`);\n            matchingUsers.push(user);\n            break; // Don't add the same user multiple times\n          }\n        }\n      }\n    }\n    \n    console.log(`\\nFound ${matchingUsers.length} users with Bihar head offices:`);\n    matchingUsers.forEach(user => {\n      console.log(`  - ${user.name} (${user.email})`);\n    });\n    \n    // Now test the actual MongoDB query\n    console.log('\\nTesting actual MongoDB query:');\n    const queryResult = await User.find({ \n      isActive: true, \n      headOffices: { $in: headOfficeIds } \n    }).select('name email headOffices');\n    \n    console.log(`Query returned ${queryResult.length} users:`);\n    queryResult.forEach(user => {\n      console.log(`  - ${user.name} (${user.email})`);\n    });\n    \n  } catch (error) {\n    console.error('Error testing Bihar query:', error);\n  }\n};\n\n// Run the test\nconst run = async () => {\n  await connectDB();\n  await testFullBiharQuery();\n  process.exit(0);\n};\n\nrun();"
+        }
+    ]
+}

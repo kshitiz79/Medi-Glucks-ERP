@@ -1,0 +1,18 @@
+{
+    "sourceFile": "scripts/fixChandanUser.js",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1757009644243,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1757009644243,
+            "name": "Commit-0",
+            "content": "const mongoose = require('mongoose');\nrequire('dotenv').config();\n\n// Import models\nconst User = require('../src/user/User');\n\n// MongoDB connection\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/glcukscare', {\n      useNewUrlParser: true,\n      useUnifiedTopology: true,\n    });\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\n// Function to specifically fix Chandan Kumar's data\nconst fixChandanUser = async () => {\n  try {\n    console.log('Checking Chandan Kumar\\'s data...');\n    \n    // Find Chandan by email\n    const chandan = await User.findOne({ \n      email: 'chandan.kumar@gluckscare.com' \n    });\n    \n    if (!chandan) {\n      console.log('Chandan Kumar not found!');\n      return;\n    }\n    \n    console.log(`Found Chandan: ${chandan.name}`);\n    console.log(`Current headOffices:`, chandan.headOffices);\n    console.log(`Current headOffice:`, chandan.headOffice);\n    \n    // Ensure headOffices array contains proper ObjectIds\n    let updatedHeadOffices = [];\n    \n    for (const office of chandan.headOffices) {\n      if (typeof office === 'string') {\n        try {\n          updatedHeadOffices.push(new mongoose.Types.ObjectId(office));\n        } catch (err) {\n          console.log(`Failed to convert string to ObjectId: ${office}`);\n        }\n      } else {\n        updatedHeadOffices.push(office);\n      }\n    }\n    \n    // Update the user\n    chandan.headOffices = updatedHeadOffices;\n    \n    // Remove the single headOffice field to avoid confusion\n    chandan.headOffice = undefined;\n    \n    await chandan.save();\n    \n    console.log('Updated Chandan\\'s data:');\n    console.log(`New headOffices:`, chandan.headOffices);\n    console.log('✓ Chandan Kumar data fixed successfully!');\n    \n    // Test the query that was failing\n    const darbhangaId = new mongoose.Types.ObjectId('68a42d720fd473dd1c3074d3');\n    \n    const testQuery = await User.findOne({ \n      email: 'chandan.kumar@gluckscare.com',\n      headOffices: darbhangaId\n    });\n    \n    console.log(`Query test result: ${testQuery ? 'SUCCESS' : 'FAILED'}`);\n    \n  } catch (error) {\n    console.error('Error fixing Chandan user data:', error);\n  }\n};\n\n// Run the fix\nconst run = async () => {\n  await connectDB();\n  await fixChandanUser();\n  process.exit(0);\n};\n\nrun();"
+        }
+    ]
+}
