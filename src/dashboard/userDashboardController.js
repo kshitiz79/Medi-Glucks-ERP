@@ -134,11 +134,11 @@ const getUserDashboard = async (req, res) => {
                     : `Latest target: ${targetData.targetPeriod || 'N/A'} (No current month target found)`
             },
             summary: {
-                totalActivities: formatSummaryValue(visitStats.total + salesData.totalActivities),
-                visitCompletionRate: formatSummaryValue(visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0),
-                targetAchievement: formatSummaryValue(targetData.achievementPercentage || 0),
-                pendingExpenses: formatSummaryValue(expenseData.pending || 0),
-                totalExpenseAmount: formatSummaryValue(expenseData.totalAmount || 0)
+                totalActivities: String(formatSummaryValue(visitStats.total + salesData.totalActivities)),
+                visitCompletionRate: String(formatSummaryValue(visitStats.total > 0 ? ((visitStats.approved / visitStats.total) * 100) : 0)),
+                targetAchievement: String(formatSummaryValue(targetData.achievementPercentage || 0)),
+                pendingExpenses: String(formatSummaryValue(expenseData.pending || 0)),
+                totalExpenseAmount: String(formatSummaryValue(expenseData.totalAmount || 0))
             }
         };
 
