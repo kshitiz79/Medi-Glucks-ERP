@@ -81,7 +81,7 @@ class RedisClient {
         return this.isConnected && this.client;
     }
 
-    // Location-specific methods
+    // Location-specific methods with TTL
     async setUserLocation(userId, locationData) {
         if (!this.isReady()) {
             throw new Error('Redis client not ready');
@@ -93,7 +93,8 @@ class RedisClient {
             lastUpdated: new Date().toISOString()
         };
         
-        await this.client.setEx(key, 3600, JSON.stringify(data)); // Expire in 1 hour
+        // Set with shorter TTL to save memory (30 minutes)
+        await this.client.setEx(key, 1800, JSON.stringify(data));
         return data;
     }
 
