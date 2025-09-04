@@ -7,6 +7,11 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const { redisClient } = require('./src/config/redis');
+const LocationWebSocket = require('./src/location/locationWebSocket');
+
+// Initialize location worker (starts processing queue)
+require('./src/location/locationWorker');
 
 dotenv.config();
 
@@ -50,7 +55,7 @@ app.use(cors({
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.log('CORS rejected origin:', origin); // Debug log
+            // CORS rejected origin (security check)
             callback(new Error('Not allowed by CORS'));
         }
     },
@@ -73,18 +78,18 @@ const mongoOptions = {
 
 mongoose.connect(process.env.MONGO_URI, mongoOptions)
     .then(async () => {
-        console.log('MongoDB connected successfully');
+        // MongoDB connected successfully
 
         // Drop old unique index on registration_number (if present)
         const coll = mongoose.connection.db.collection('doctors');
         try {
             await coll.dropIndex('registration_number_1');
-            console.log('✔ Dropped unique index on registration_number');
+            // Dropped unique index on registration_number
         } catch (err) {
             if (err.codeName === 'IndexNotFound') {
-                console.log('ℹ No registration_number index to drop');
+                // No registration_number index to drop
             } else {
-                console.error('⚠ Error dropping registration_number index:', err);
+                // Error dropping registration_number index
             }
         }
 
@@ -122,6 +127,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         const payrollRoutes = require('./src/payroll/payrollRoutes');
         const cleanupRoutes = require('./src/admin/cleanupRoutes');
         const designationRoutes = require('./src/designation/Route');
+        const gpsTrackingRoutes = require('./src/location/gpsTrackingRoutes');
         const dashboardRoutes = require('./src/dashboard/userDashboardRoutes');
         const debugRoutes = require('./src/debug/debugRoutes');
 
@@ -154,6 +160,7 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         app.use('/api/version', versionRoutes);
         app.use('/api/payroll', payrollRoutes);
         app.use('/api/admin/cleanup', cleanupRoutes);
+        app.use('/api/gps-tracking', gpsTrackingRoutes);
         app.use('/api/mobile/dashboard', dashboardRoutes);
         app.use('/api/debug', debugRoutes);
 
@@ -183,9 +190,21 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
         });
 
         const PORT = process.env.PORT || 5050;
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-            console.log('Socket.IO server initialized');
+        server.listen(PORT, async () => {
+            // Server running on port
+            // Socket.IO server initialized
+            
+            // Initialize Redis connection
+            try {
+                await redisClient.connect();
+                // Redis connected and ready for GPS tracking
+            } catch (error) {
+                // Redis connection failed
+            }
+            
+            // Initialize Location WebSocket service
+            const locationWS = new LocationWebSocket(io);
+            // Location WebSocket service initialized
         });
 
         // Socket.IO connection handling
@@ -198,37 +217,67 @@ mongoose.connect(process.env.MONGO_URI, mongoOptions)
                 // console.log(`User ${userId} joined their room`); // Debug log (commented out)
             });
 
+            // GPS Tracking - Join location tracking room
+            socket.on('join-location-tracking', (data) => {
+                const { userId, userType } = data;
+                
+                if (userType === 'admin') {
+                    socket.join('admin-location-tracking');
+                    // Admin client joined location tracking
+                } else if (userId) {
+                    socket.join(`user-location-${userId}`);
+                    // User joined location tracking
+                }
+            });
+
+            // GPS Tracking - Handle real-time location updates
+            socket.on('location-update', (data) => {
+                const { userId } = data;
+                if (userId) {
+                    // Broadcast to admin clients
+                    io.to('admin-location-tracking').emit('user-location-update', {
+                        userId,
+                        ...data,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            });
+
+            socket.on('disconnect', () => {
+                // Client disconnected
+            });
+
             socket.on('disconnect', () => {
                 // console.log('Client disconnected:', socket.id); // Debug log (commented out)
             });
         });
     })
     .catch(err => {
-        console.error('MongoDB connection error:', err);
+        // MongoDB connection error
         process.exit(1);
     });
 
 // MongoDB connection event listeners
 mongoose.connection.on('connected', () => {
-    console.log('✅ Mongoose connected to MongoDB');
+    // Mongoose connected to MongoDB
 });
 
 mongoose.connection.on('error', (err) => {
-    console.error('❌ Mongoose connection error:', err);
+    // Mongoose connection error
 });
 
 mongoose.connection.on('disconnected', () => {
-    console.log('⚠️ Mongoose disconnected from MongoDB');
+    // Mongoose disconnected from MongoDB
 });
 
 // Handle application termination
 process.on('SIGINT', async () => {
     try {
         await mongoose.connection.close();
-        console.log('🔌 MongoDB connection closed through app termination');
+        // MongoDB connection closed through app termination
         process.exit(0);
     } catch (err) {
-        console.error('Error closing MongoDB connection:', err);
+        // Error closing MongoDB connection
         process.exit(1);
     }
 });

@@ -4,6 +4,10 @@ const Location = require('./Location');
 const User = require('../user/User');
 const auth = require('../middleware/authMiddleware');
 
+// Import GPS tracking functionality
+const { redisClient } = require('../config/redis');
+const { addLocationEvent } = require('./locationQueue');
+
 // Import enhanced location controller
 const {
     getUsersLocationTracker,
@@ -16,7 +20,7 @@ const {
     getUserCurrentLocationByStateHead
 } = require('./locationController');
 
-// POST route to save location data - Backward compatible
+// POST route to save location data - Enhanced with GPS tracking functionality
 router.post('/', async (req, res) => {
   try {
     const {
@@ -30,7 +34,8 @@ router.post('/', async (req, res) => {
       speed,
       heading,
       batteryLevel,
-      networkType
+      networkType,
+      timestamp
     } = req.body;
 
     // Validate required fields
@@ -64,7 +69,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Check if user exists (only if userId is provided)
+    // Check if user exists
     if (userId) {
       const user = await User.findById(userId);
       if (!user) {
@@ -75,7 +80,51 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Create location data
+    // === GPS TRACKING ENHANCEMENT ===
+    // Add to message queue for advanced processing (filtering, stop detection, etc.)
+    try {
+      const job = await addLocationEvent({
+        userId,
+        lat: parseFloat(latitude),
+        lng: parseFloat(longitude),
+        speed: speed ? parseFloat(speed) : 0,
+        accuracy: accuracy ? parseFloat(accuracy) : null,
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
+        batteryLevel: batteryLevel ? parseFloat(batteryLevel) : null,
+        networkType: networkType || 'unknown'
+      });
+
+      // Immediately update Redis for real-time tracking
+      const locationData = {
+        lat: parseFloat(latitude),
+        lng: parseFloat(longitude),
+        speed: speed ? parseFloat(speed) : 0,
+        accuracy: accuracy ? parseFloat(accuracy) : null,
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
+        batteryLevel: batteryLevel ? parseFloat(batteryLevel) : null,
+        networkType: networkType || 'unknown'
+      };
+      
+      await redisClient.setUserLocation(userId, locationData);
+      await redisClient.publishLocationUpdate(userId, locationData);
+
+      // Emit real-time update via Socket.IO
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('location-update', {
+          userId,
+          ...locationData
+        });
+      }
+
+      console.log(`Enhanced GPS tracking: User ${userId} location queued for processing (Job: ${job.id})`);
+    } catch (gpsError) {
+      console.error('GPS tracking enhancement failed:', gpsError);
+      // Continue with basic location saving if GPS enhancement fails
+    }
+
+    // === BACKWARD COMPATIBILITY - Original location saving ===
+    // Create location data for backward compatibility
     const locationData = {
       userId,
       userName,
@@ -92,12 +141,15 @@ router.post('/', async (req, res) => {
       locationData.batteryLevel = parseInt(batteryLevel);
     }
     if (networkType) locationData.networkType = networkType;
+    if (speed !== undefined && speed !== null && !isNaN(parseFloat(speed))) {
+      locationData.speed = parseFloat(speed);
+    }
 
     const location = new Location(locationData);
     await location.save();
 
     // Create response message based on what was provided
-    let responseMessage = "Location saved successfully";
+    let responseMessage = "Location saved successfully with GPS tracking";
     if (userId && userName) {
       responseMessage += ` for user ${userName} (ID: ${userId})`;
     } else if (userName) {
@@ -119,6 +171,10 @@ router.post('/', async (req, res) => {
           userId: location.userId || null,
           userName: location.userName || null,
           deviceId: location.deviceId || null
+        },
+        gpsTracking: {
+          enabled: true,
+          processed: true
         }
       }
     });

@@ -189,7 +189,7 @@ exports.getUsersLocationTracker = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get users location tracker error:', error);
+        // Get users location tracker error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch users location data',
@@ -344,7 +344,7 @@ exports.getUserLocationHistory = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get user location history error:', error);
+        // Get user location history error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch user location history',
@@ -401,7 +401,7 @@ exports.getRealTimeLocations = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get real-time locations error:', error);
+        // Get real-time locations error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch real-time locations',
@@ -608,7 +608,7 @@ exports.getStateHeadUsersLocationTracker = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get state head users location tracker error:', error);
+        // Get state head users location tracker error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch state users location data',
@@ -773,7 +773,7 @@ exports.getStateHeadCurrentLocations = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get state head current locations error:', error);
+        // Get state head current locations error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch current locations for state users',
@@ -906,7 +906,7 @@ exports.getLocationAnalytics = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get location analytics error:', error);
+        // Get location analytics error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch location analytics',
@@ -1070,7 +1070,7 @@ exports.getUser24HourLocationData = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get user 24h location data error:', error);
+        // Get user 24h location data error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch user 24-hour location data',
@@ -1244,7 +1244,7 @@ exports.getUserCurrentLocationByStateHead = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get user current location by state head error:', error);
+        // Get user current location by state head error
         res.status(500).json({
             success: false,
             message: 'Failed to fetch user current location',
