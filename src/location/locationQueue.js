@@ -147,31 +147,57 @@ const getQueueStats = async () => {
     }
 };
 
-// Clean old jobs aggressively
+// Clean old jobs safely - FIXED VERSION
 const cleanQueue = async () => {
     try {
-        // Clean completed jobs older than 30 minutes
-        await locationQueue.clean(30 * 60 * 1000, 'completed', 100);
-        // Clean failed jobs older than 30 minutes
-        await locationQueue.clean(30 * 60 * 1000, 'failed', 50);
-        // Clean stalled jobs older than 10 minutes
-        await locationQueue.clean(10 * 60 * 1000, 'stalled', 10);
-        // Clean active jobs older than 5 minutes (stuck jobs)
-        await locationQueue.clean(5 * 60 * 1000, 'active', 5);
+        console.log('🧹 Starting safe queue cleanup...');
         
-        console.log('Location queue cleaned successfully');
+        // Use Bull.js supported clean methods (completed, failed, active, delayed)
+        const cleanedCompleted = await locationQueue.clean(30 * 60 * 1000, 'completed', 100);
+        const cleanedFailed = await locationQueue.clean(30 * 60 * 1000, 'failed', 50);
+        const cleanedActive = await locationQueue.clean(5 * 60 * 1000, 'active', 10); // Clean stuck active jobs
+        const cleanedDelayed = await locationQueue.clean(60 * 60 * 1000, 'delayed', 20); // Clean old delayed jobs
         
-        // Get stats after cleanup
+        console.log(`✅ Cleaned: ${cleanedCompleted} completed, ${cleanedFailed} failed, ${cleanedActive} active, ${cleanedDelayed} delayed jobs`);
+        
+        // Get current queue stats
         const stats = await getQueueStats();
-        console.log('Queue stats after cleanup:', stats);
+        if (stats) {
+            console.log('📊 Queue stats after cleanup:', stats);
+            
+            // If queue is getting too large, do additional cleanup
+            if (stats.total > 1000) {
+                console.log('⚠️ Queue size is large, performing additional cleanup...');
+                
+                // Remove excess waiting jobs (keep only latest 100)
+                const waitingJobs = await locationQueue.getWaiting();
+                if (waitingJobs.length > 100) {
+                    const jobsToRemove = waitingJobs.slice(0, waitingJobs.length - 100);
+                    let removedCount = 0;
+                    
+                    for (const job of jobsToRemove) {
+                        try {
+                            await job.remove();
+                            removedCount++;
+                        } catch (err) {
+                            // Job might already be processed, continue
+                        }
+                    }
+                    console.log(`🗑️ Removed ${removedCount} excess waiting jobs`);
+                }
+            }
+        }
+        
+        console.log('✅ Queue cleanup completed successfully');
         
     } catch (error) {
-        console.error('Error cleaning queue:', error);
+        console.error('❌ Error during queue cleanup:', error.message);
+        // Don't throw the error to prevent interval from stopping
     }
 };
 
-// Auto-cleanup every 5 minutes
-setInterval(cleanQueue, 5 * 60 * 1000);
+// Auto-cleanup every 10 minutes (reduced frequency to prevent errors)
+setInterval(cleanQueue, 10 * 60 * 1000);
 
 // Pause/Resume queue
 const pauseQueue = async () => {
@@ -220,11 +246,31 @@ const emergencyCleanup = async () => {
         // Pause queue
         await locationQueue.pause();
         
-        // Clean all job types aggressively
-        await locationQueue.clean(0, 'completed', 0); // Clean all completed
-        await locationQueue.clean(0, 'failed', 0); // Clean all failed
-        await locationQueue.clean(0, 'stalled', 0); // Clean all stalled
-        await locationQueue.clean(0, 'waiting', 0); // Clean all waiting
+        // Clean all job types using ONLY VALID Bull.js methods
+        const cleanedCompleted = await locationQueue.clean(0, 'completed', 0); // Clean all completed
+        const cleanedFailed = await locationQueue.clean(0, 'failed', 0); // Clean all failed  
+        const cleanedActive = await locationQueue.clean(0, 'active', 0); // Clean all active
+        const cleanedDelayed = await locationQueue.clean(0, 'delayed', 0); // Clean all delayed
+        
+        console.log(`🗑️ Emergency cleaned: ${cleanedCompleted} completed, ${cleanedFailed} failed, ${cleanedActive} active, ${cleanedDelayed} delayed jobs`);
+        
+        // For waiting jobs, use the get/remove method since clean() doesn't support 'waiting'
+        try {
+            const waitingJobs = await locationQueue.getWaiting();
+            let removedWaiting = 0;
+            for (const job of waitingJobs) {
+                try {
+                    await job.remove();
+                    removedWaiting++;
+                } catch (err) {
+                    // Job might already be processed
+                }
+            }
+            console.log(`🗑️ Removed ${removedWaiting} waiting jobs`);
+            
+        } catch (cleanupError) {
+            console.error('Error during waiting job removal:', cleanupError.message);
+        }
         
         // Clean user location cache
         const { redisClient } = require('../config/redis');
